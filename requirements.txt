@@ -1,0 +1,12 @@
+torch
+torchvision
+tensorboard
+torchinfo
+opencv-python
+pandas
+torchsummary
+tqdm
+torchmetrics
+matplotlib
+Pillow
+mlxtend
