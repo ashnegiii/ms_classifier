@@ -6,14 +6,26 @@ from typing import Tuple, Dict, List
 import pandas as pd
 from torchvision import transforms
 from pathlib import Path
+import numpy as np
 
 class MultiLabelImageDataset(Dataset):
   def __init__(self,
                root: str,
                label_csv_path: str,
+               data_fraction: float = 1.0,
                transform=None):
     self.image_dir = Path(root)
-    self.labels_df = pd.read_csv(label_csv_path)
+    
+    
+    full_labels_df = pd.read_csv(label_csv_path)
+    
+    if data_fraction < 1.0:
+      n_samples = int(len(full_labels_df) * data_fraction)
+      sample_indices = np.random.choice(len(full_labels_df), size=n_samples)
+      self.labels_df = full_labels_df.iloc[sample_indices].reset_index(drop=True)
+    else:
+      self.labels_df = full_labels_df
+    
     self.transform = transform
     self.classes, self.class_idx = self.find_classes(pd.read_csv(label_csv_path).columns)
 

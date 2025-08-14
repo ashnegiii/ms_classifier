@@ -1,3 +1,4 @@
+import shutil
 import torch
 from pathlib import Path
 import cv2
@@ -7,6 +8,26 @@ from PIL import Image
 from torchvision import transforms
 from matplotlib import pyplot as plt
 
+
+
+def calc_pos_weight(csv_path, device):
+    df = pd.read_csv(csv_path)
+    
+    label_cols = [c for c in df.columns if c != 'filename']
+    
+    weights = []
+    for column in label_cols:
+        positive_examples = df[column].sum()
+        negative_examples = df.shape[0] - positive_examples
+        
+        if positive_examples > 0:
+            weight = negative_examples / positive_examples
+        else:
+            weight = 1.0
+        
+        weights.append(weight)
+    
+    return torch.tensor(weights, dtype=torch.float32).to(device)
 
 def save_model(model: torch.nn.Module,
                target_dir: str,
@@ -114,9 +135,12 @@ def build_split(
 
     images_out_dir = data_root / split        # data/train or data/test
     labels_out_dir = data_root / f"{split}_labels"  # data/train_labels or data/test_labels
+    # remove directory and its content
+    if images_out_dir.exists():
+        shutil.rmtree(images_out_dir)
     labels_out_dir.mkdir(parents=True, exist_ok=True)
 
-    step = max(1, int(round(1.0 / float(frame_percentage))))  # e.g. 0.1 -> 10
+    step = max(1, int(round(1.0 / float(frame_percentage))))
 
     merged_parts = []
     for p in prefixes:
@@ -177,18 +201,16 @@ def pred_and_plot_image_multilabel(
     device: torch.device = torch.device("cpu"),
     thresh: float = 0.5,
     suptitle: Optional[str] = "Model Predictions"
-) -> List[Tuple[Path, List[str], torch.Tensor]]:
+):
     model = model.to(device).eval()
     image_paths = [Path(p) for p in image_paths]
     rows, cols = grid
     max_slots = rows * cols
     paths = image_paths[:max_slots]
 
-    tfm = transform or transforms.Compose([
-        transforms.Resize(image_size),
-        transforms.ToTensor(),
-    ])
-
+    PRINT_EPS = 5e-4
+    # ✅ Use caller-provided transform, else safe default with ImageNet normalization
+    tfm = transform
     imgs_pil = [Image.open(p).convert("RGB") for p in paths]
     tensors = [tfm(im) for im in imgs_pil]
     batch = torch.stack(tensors, dim=0).to(device)
@@ -209,22 +231,16 @@ def pred_and_plot_image_multilabel(
             im = imgs_pil[ax_i]
             names = pred_name_lists[ax_i]
             pr = probs[ax_i]
-            shown = [f"{cls} ({pr[class_names.index(cls)]:.2f})" for cls in names] if names else []
+            shown = [
+                f"{cls} ({pr[class_names.index(cls)]:.2f})"
+                for cls in names
+                if round(pr[class_names.index(cls)].item(), 2) != 0.0
+            ] if names else []
             title = ", ".join(shown) if shown else f"none ≥ {thresh:.2f}"
 
             ax.imshow(im)
             ax.set_title(title, fontsize=10)
             ax.axis("off")
-
-            # 🔍 Print full probability table to console
-            sorted_probs = sorted(
-                [(cls, pr[class_names.index(cls)].item()) for cls in class_names],
-                key=lambda x: x[1],
-                reverse=True
-            )
-            print(f"\nImage: {paths[ax_i].name}")
-            for cls, score in sorted_probs:
-                print(f"  {cls:15s}: {score:.3f}")
         else:
             ax.axis("off")
 
@@ -234,3 +250,9 @@ def pred_and_plot_image_multilabel(
     plt.show()
 
     return [(p, pred_name_lists[i], probs[i]) for i, p in enumerate(paths)]
+
+
+def analyze_class_distribution(dataloader):
+    all_labels = []
+    for _, labels in dataloader:
+        all_labels.append(labels)

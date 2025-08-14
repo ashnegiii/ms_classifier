@@ -16,6 +16,8 @@ def create_dataloaders(
     batch_size: int,
     num_workers: int,
     device: torch.device,
+    train_data_fraction = 1,
+    test_data_fraction = 1,
 ):
   """
   Creates training and testing DataLoaders.
@@ -45,8 +47,8 @@ def create_dataloaders(
   train_csv_path = train_dir.parent / f"{train_dir.name}_labels" / "labels.csv"
   test_csv_path  = test_dir.parent  / f"{test_dir.name}_labels"  / "labels.csv"
 
-  train_data = MultiLabelImageDataset(root=train_dir, label_csv_path=train_csv_path, transform=train_transform)
-  test_data = MultiLabelImageDataset(root=test_dir, label_csv_path=test_csv_path, transform=test_transform)
+  train_data = MultiLabelImageDataset(root=train_dir, label_csv_path=train_csv_path, data_fraction=train_data_fraction, transform=train_transform)
+  test_data = MultiLabelImageDataset(root=test_dir, label_csv_path=test_csv_path, data_fraction=test_data_fraction, transform=test_transform)
 
   class_names = train_data.classes
 

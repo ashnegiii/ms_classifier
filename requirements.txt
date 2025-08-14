@@ -1,5 +1,5 @@
-torch
-torchvision
+torch --index-url https://download.pytorch.org/whl/cu126
+torchvision --index-url https://download.pytorch.org/whl/cu126
 tensorboard
 torchinfo
 opencv-python
@@ -10,3 +10,4 @@ torchmetrics
 matplotlib
 Pillow
 mlxtend
+scikit-learn
