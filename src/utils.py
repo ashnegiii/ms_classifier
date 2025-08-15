@@ -65,7 +65,6 @@ def _extract_and_merge_for_prefix(
     video_dir: Path,
     csv_dir: Path,
     images_out_dir: Path,
-    keep_step: int
 ) -> pd.DataFrame:
     """Extract frames for a single prefix and return a labels DataFrame (with filename column, no '.jpg')."""
     video_path = video_dir / f"{prefix}.avi"
@@ -80,7 +79,7 @@ def _extract_and_merge_for_prefix(
     frame_col = "frame"
 
     # Subsample rows
-    df_kept = df.iloc[::keep_step].reset_index(drop=True)
+    df_kept = df.iloc[::1].reset_index(drop=True)
     kept_frames = df_kept[frame_col].astype(int).tolist()
     kept_set = set(kept_frames)
 
@@ -118,8 +117,7 @@ def build_split(
     prefixes: List[str],            
     video_dir: str | Path,          
     csv_dir: str | Path,            
-    data_root: str | Path = "data", 
-    frame_percentage: float = 1.0
+    data_root: str | Path = "data",
 ) -> Tuple[Path, Path]:
     """
     One-call pipeline per split: extracts frames from videos AND writes merged labels.csv.
@@ -140,8 +138,6 @@ def build_split(
         shutil.rmtree(images_out_dir)
     labels_out_dir.mkdir(parents=True, exist_ok=True)
 
-    step = max(1, int(round(1.0 / float(frame_percentage))))
-
     merged_parts = []
     for p in prefixes:
         part = _extract_and_merge_for_prefix(
@@ -149,7 +145,6 @@ def build_split(
             video_dir=video_dir,
             csv_dir=csv_dir,
             images_out_dir=images_out_dir,
-            keep_step=step
         )
         merged_parts.append(part)
 
@@ -167,12 +162,12 @@ def build_split(
     return images_out_dir, merged_csv_path
 
 def build_train(prefixes: List[str], video_dir: str | Path, csv_dir: str | Path,
-                data_root: str | Path = "data", frame_percentage: float = 1.0):
-    return build_split("train", prefixes, video_dir, csv_dir, data_root, frame_percentage)
+                data_root: str | Path = "data"):
+    return build_split("train", prefixes, video_dir, csv_dir, data_root)
 
 def build_test(prefixes: List[str], video_dir: str | Path, csv_dir: str | Path,
-               data_root: str | Path = "data", frame_percentage: float = 1.0):
-    return build_split("test", prefixes, video_dir, csv_dir, data_root, frame_percentage)
+               data_root: str | Path = "data"):
+    return build_split("test", prefixes, video_dir, csv_dir, data_root)
 
 def load_model(model_path: str, model_class, model_args: dict, device: torch.device, num_classes: int):
     model = model_class(**model_args)
