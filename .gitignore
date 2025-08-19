@@ -144,7 +144,10 @@ cython_debug/
 # data
 data/test/
 data/train/
+data/val/
 data/videos/
+runs/
+wandb/
 
 # models
 models/

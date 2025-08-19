@@ -1,23 +1,25 @@
 """
 Contains functionality for creating PyTorch DataLoader's for image classification data.
 """
-import os
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-
+from torch.utils.data import WeightedRandomSampler
 from dataset import MultiLabelImageDataset
 
 def create_dataloaders(
     train_dir: str,
+    val_dir: str,
     test_dir: str,
     train_transform: transforms.Compose,
     test_transform: transforms.Compose,
     batch_size: int,
     num_workers: int,
     device: torch.device,
-    train_data_fraction = 1,
-    test_data_fraction = 1,
+    sampler: WeightedRandomSampler,
+    train_data_fraction: float = 1,
+    test_data_fraction: float = 1,
+    val_data_fraction: float = 1
 ):
   """
   Creates training and testing DataLoaders.
@@ -46,8 +48,10 @@ def create_dataloaders(
 
   train_csv_path = train_dir.parent / f"{train_dir.name}_labels" / "labels.csv"
   test_csv_path  = test_dir.parent  / f"{test_dir.name}_labels"  / "labels.csv"
+  val_csv_path = val_dir.parent / f"{val_dir.name}_labels" / "labels.csv"
 
   train_data = MultiLabelImageDataset(root=train_dir, label_csv_path=train_csv_path, data_fraction=train_data_fraction, transform=train_transform)
+  val_data = MultiLabelImageDataset(root=val_dir, label_csv_path=val_csv_path, data_fraction=val_data_fraction, transform=train_transform)
   test_data = MultiLabelImageDataset(root=test_dir, label_csv_path=test_csv_path, data_fraction=test_data_fraction, transform=test_transform)
 
   class_names = train_data.classes
@@ -60,6 +64,16 @@ def create_dataloaders(
       pin_memory=device.type == "cuda",
   )
 
+  val_dataloader = DataLoader(
+      val_data,
+      batch_size=batch_size,
+      shuffle=True,
+      num_workers=num_workers,
+      pin_memory=device.type == "cuda",
+  )
+
+
+
   test_dataloader = DataLoader(
       test_data,
       batch_size=batch_size,
@@ -68,5 +82,5 @@ def create_dataloaders(
       pin_memory=device.type == "cuda",
   )
 
-  return train_dataloader, test_dataloader, class_names
+  return train_dataloader, val_dataloader, test_dataloader, class_names
 

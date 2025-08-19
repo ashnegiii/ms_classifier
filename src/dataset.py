@@ -33,6 +33,9 @@ class MultiLabelImageDataset(Dataset):
     " Returns the total number of samples (already removes the header)."
     return len(self.labels_df)
 
+  def get_labels(self):
+    return self.classes
+
   def __getitem__(self, index: int):
     row = self.labels_df.iloc[index]
     filename = row["filename"]
