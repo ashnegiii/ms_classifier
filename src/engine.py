@@ -137,7 +137,26 @@ def train(model: torch.nn.Module,
     for epoch in tqdm(range(epochs)):
         # Train and test with metrics
         train_metrics = train_step(model=model, dataloader=train_dataloader, threshold=threshold, loss_fn=loss_fn, optimizer=optimizer, class_names=class_names, device=device)
-        test_metrics = test_step(model=model, dataloader=test_dataloader, threshold=threshold, loss_fn=loss_fn, class_names=class_names, device=device)
+        
+        print(f"\nEpoch {epoch+1}/{epochs}")
+        
+        print(f"  Train - Loss: {train_metrics['loss']:.4f}")
+        print(f"  Train - Accuracy per class: {[f'{a:.4f}' for a in train_metrics['accuracy_per_class']]}")
+        print(f"  Train - Precision per class: {[f'{a:.4f}' for a in train_metrics['precision_per_class']]}")
+        print(f"  Train - Recall per class: {[f'{a:.4f}' for a in train_metrics['recall_per_class']]}")
+        print(f"  Train - F1 per class: {[f'{a:.4f}' for a in train_metrics['f1_per_class']]}")
+        print(f"  Train - Average Precision per class: {[f'{a:.4f}' for a in train_metrics['ap_per_class']]}")
+        print(f"  Train - mAP: {train_metrics['mAP_macro']:.4f}")
+        
+        optimal_thresholds = {
+            'kermit': 0.3,        # Lower threshold (more common in test)
+            'miss_piggy': 0.2,    # Lower threshold  
+            'cook': 0.1,          # Higher threshold (less common in test)
+            'statler_waldorf': 0.5, # Higher threshold
+            'rowlf_the_dog': 0.5, # Much higher (very rare in test)  
+            'fozzie_bear': 0.4    # Lower threshold
+        }
+        test_metrics = test_step(model=model, dataloader=test_dataloader, optimal_thresholds=optimal_thresholds, loss_fn=loss_fn, class_names=class_names, device=device)
 
         # Store data for custom plots
         epoch_data.append(epoch + 1)
@@ -181,8 +200,7 @@ def train(model: torch.nn.Module,
         # Log everything to W&B
         wandb.log(log_dict, step=epoch + 1)
 
-        print(f"\nEpoch {epoch+1}/{epochs}")
-        print(f"  Train - Loss: {train_metrics['loss']:.4f}")
+
         print(f"  Test - Loss: {test_metrics['loss']:.4f}")
         print(f"  Plain - Loss: {test_metrics['loss_plain']:.4f}")
         print(f"  Test - Accuracy per class: {[f'{a:.4f}' for a in test_metrics['accuracy_per_class']]}")

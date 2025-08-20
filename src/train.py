@@ -25,6 +25,7 @@ train_dir = Path("data/train")
 test_dir  = Path("data/test")
 val_dir = Path("data/val")
 train_labels_dir = Path("data/train_labels/labels.csv")
+test_labels_dir = Path("data/test_labels/labels.csv")
 
 def generate_experiment_group_id():
     """Generate a random group identifier for this experiment batch"""
@@ -148,8 +149,10 @@ def main():
     # Generate random group ID for this experiment batch
     experiment_group = generate_experiment_group_id()
     print(f"[INFO] Experiment group: {experiment_group}")
-    
+    print(f"[INFO] Training data analysis:")
     analyze_class_distribution_from_csv(train_labels_dir)
+    print(f"[INFO] Test data analysis:")
+    analyze_class_distribution_from_csv(test_labels_dir)
 
     experiment_combinations = list(itertools.product(
         ExperimentConfig.model_name,

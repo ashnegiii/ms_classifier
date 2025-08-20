@@ -5,7 +5,7 @@ import torch
 import torchvision.models as models
 from data_setup import create_dataloaders
 from engine import test_step
-from train import BATCH_SIZE, NUM_WORKERS
+from train import NUM_WORKERS
 from utils import load_model, load_vit_model, pred_and_plot_image_multilabel
 import random
 from torchvision import transforms
@@ -23,21 +23,24 @@ def main():
     ])
     
     # Get class names first
-    _, test_dataloader, class_names = create_dataloaders(
+    _, _, test_dataloader, class_names = create_dataloaders(
         train_dir=Path("data/train"),
         test_dir=Path("data/test"),
+        val_dir=Path("data/val"),
         train_data_fraction=0.1,
         test_data_fraction=0.1,
+        val_data_fraction=0.1,
+        sampler=None,
         train_transform=None,
         test_transform=test_transform,
-        batch_size=BATCH_SIZE,
+        batch_size=32,
         num_workers=NUM_WORKERS,
         device=device
     )
 
     # Load model with the correct architecture
     model = load_vit_model(
-        model_path="models/vit_b_16_dl100_e3_bs32_lr0.0001_2025-08-17_21-23-09.pth",
+        model_path="models/vitb16_unfreeze3_dl100_e3_bs32_lr0.001_wd0.001_th0.4_mw3_2025-08-19_23-58-49.pth",
         num_classes=len(class_names),
         device=device
     )
