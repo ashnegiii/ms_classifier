@@ -146,6 +146,10 @@ data/test/
 data/train/
 data/val/
 data/videos/
+data/raw/*.avi
+data/raw/*.mp4
+data/images/
+data/labels
 runs/
 wandb/
 
@@ -157,3 +161,5 @@ models/
 # logs
 *.log
 .venv
+
+base.exe.stackdump

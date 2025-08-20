@@ -11,3 +11,4 @@ matplotlib
 Pillow
 mlxtend
 scikit-learn
+wandb
