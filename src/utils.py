@@ -1,18 +1,20 @@
 import shutil
-from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, accuracy_score
-import torch
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
+
 import cv2
-import pandas as pd
-from typing import Dict, Tuple, List, Optional, Union
-from PIL import Image
-import torchvision.models as models
-from torch import nn
-from torchvision import transforms
-from matplotlib import pyplot as plt
 import numpy as np
-from torch.utils.data import WeightedRandomSampler
+import pandas as pd
+import torch
+import torchvision.models as models
 import tqdm
+from matplotlib import pyplot as plt
+from PIL import Image
+from sklearn.metrics import (accuracy_score, average_precision_score, f1_score,
+                             precision_score, recall_score)
+from torch import nn
+from torch.utils.data import WeightedRandomSampler
+from torchvision import transforms
 
 SUPPORTED_VIDEO_EXTS = [".mp4", ".avi"]
 
@@ -278,241 +280,6 @@ def save_model(model: torch.nn.Module,
   torch.save(obj=model.state_dict(),
              f=model_save_path)
 
-def _find_video_path(video_dir: Path, prefix: str) -> Path:
-    for ext in [".mp4", ".avi"]:
-        p = (video_dir / f"{prefix}{ext}")
-        if p.exists():
-            return p
-    raise FileNotFoundError(
-        f"No video found for prefix '{prefix}'. Looked for: "
-        + ", ".join(str(video_dir / f"{prefix}{e}") for e in SUPPORTED_VIDEO_EXTS)
-    )
-    
-def _extract_and_merge_for_prefix(
-    prefix: str,
-    video_dir: Path,
-    csv_dir: Path,
-    images_out_dir: Path,
-    images_out_dir_val: Path = None,
-    val_frac: float = 0.0
-) -> pd.DataFrame:
-    """Extract frames for a single prefix and return a labels DataFrame (with filename column, no '.jpg')."""
-    video_path = _find_video_path(video_dir, prefix)
-    csv_path   = csv_dir / f"{prefix}.csv"
-
-    if not video_path.exists():
-        raise FileNotFoundError(f"Video not found: {video_path}")
-    if not csv_path.exists():
-        raise FileNotFoundError(f"CSV not found: {csv_path}")
-
-    df = pd.read_csv(csv_path)
-    frame_col = "frame"
-
-    # Subsample rows
-    df_kept = df.iloc[::1].reset_index(drop=True)
-    kept_frames = df_kept[frame_col].astype(int).tolist()
-    kept_set = set(kept_frames)
-
-    # Prepare video read
-    images_out_dir.mkdir(parents=True, exist_ok=True)
-    
-    if val_frac > 0 and images_out_dir_val is not None:
-        images_out_dir_val.mkdir(parents=True, exist_ok=True)
-        
-        # Split dataframe into train/val
-        df_val = df_kept.sample(frac=val_frac, random_state=42)
-        df_train = df_kept.drop(df_val.index).reset_index(drop=True)
-        df_val = df_val.reset_index(drop=True)
-        
-        # Get frame sets for each split
-        val_frames = set(df_val[frame_col].astype(int))
-        train_frames = set(df_train[frame_col].astype(int))
-        
-        # Read video once and save frames to appropriate folders
-        cap = cv2.VideoCapture(str(video_path))
-        if not cap.isOpened():
-            raise RuntimeError(f"Failed to open video: {video_path}")
-        
-        saved_train = 0
-        saved_val = 0
-        frame_idx = 0
-        
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-                
-            if frame_idx in kept_set:
-                if frame_idx in val_frames:
-                    out_path = images_out_dir_val / f"{prefix}_{frame_idx}.jpg"
-                    cv2.imwrite(str(out_path), frame)
-                    saved_val += 1
-                elif frame_idx in train_frames:
-                    out_path = images_out_dir / f"{prefix}_{frame_idx}.jpg"
-                    cv2.imwrite(str(out_path), frame)
-                    saved_train += 1
-            
-            frame_idx += 1
-        
-        cap.release()
-        
-        print(f"[{prefix}] saved {saved_train} frames to {images_out_dir}")
-        print(f"[{prefix}] saved {saved_val} frames to {images_out_dir_val}")
-        
-        # Create label dataframes
-        label_cols = [c for c in df_train.columns if c != frame_col]
-        
-        labels_out_train = df_train[label_cols].copy()
-        labels_out_train.insert(0, "filename", [f"{prefix}_{f}.jpg" for f in df_train[frame_col]])
-        
-        labels_out_val = df_val[label_cols].copy()
-        labels_out_val.insert(0, "filename", [f"{prefix}_{f}.jpg" for f in df_val[frame_col]])
-        
-        return labels_out_train, labels_out_val
-    
-    else:
-        # No validation split
-        cap = cv2.VideoCapture(str(video_path))
-        if not cap.isOpened():
-            raise RuntimeError(f"Failed to open video: {video_path}")
-        
-        saved = 0
-        frame_idx = 0
-        
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            if frame_idx in kept_set:
-                out_path = images_out_dir / f"{prefix}_{frame_idx}.jpg"
-                cv2.imwrite(str(out_path), frame)
-                saved += 1
-            frame_idx += 1
-        
-        cap.release()
-        
-        print(f"[{prefix}] saved {saved} frames to {images_out_dir}")
-        
-        label_cols = [c for c in df_kept.columns if c != frame_col]
-        labels_out = df_kept[label_cols].copy()
-        labels_out.insert(0, "filename", [f"{prefix}_{f}.jpg" for f in kept_frames])
-        return labels_out
-
-
-def build_split(
-    split: str,
-    prefixes: List[str],            
-    video_dir: str | Path,          
-    csv_dir: str | Path,            
-    data_root: str | Path = "data",
-    val_frac: float = 0.0
-) -> Tuple[Path, Path]:
-    """
-    One-call pipeline per split: extracts frames from videos AND writes merged labels.csv.
-    Returns: (images_dir, merged_labels_csv_path) or ((train_images_dir, val_images_dir), (train_labels_path, val_labels_path)) if val_frac > 0
-    """
-    split = split.lower()
-    if split not in {"train", "test"}:
-        raise ValueError("split must be 'train' or 'test'.")
-    
-    video_dir = Path(video_dir)
-    csv_dir = Path(csv_dir)
-    data_root = Path(data_root)
-
-    if val_frac == 0.0:
-        # no validation split
-        images_out_dir = data_root / split
-        labels_out_dir = data_root / f"{split}_labels"
-        
-        # Remove existing directory and its content
-        if images_out_dir.exists():
-            shutil.rmtree(images_out_dir)
-            
-        labels_out_dir.mkdir(parents=True, exist_ok=True)
-
-        merged_parts = []
-        for p in prefixes:
-            part = _extract_and_merge_for_prefix(
-                prefix=p,
-                video_dir=video_dir,
-                csv_dir=csv_dir,
-                images_out_dir=images_out_dir,
-            )
-            merged_parts.append(part)
-
-        merged_df = pd.concat(merged_parts, ignore_index=True)
-
-        # Ensure class columns are exactly those in CSVs beyond filename
-        cols = ["filename"] + [c for c in merged_df.columns if c != "filename"]
-        merged_df = merged_df[cols]
-
-        merged_csv_path = labels_out_dir / "labels.csv"
-        merged_df.to_csv(merged_csv_path, index=False)
-        print(f"[{split}] merged labels saved to: {merged_csv_path} (rows={len(merged_df)})")
-        
-        return images_out_dir, merged_csv_path
-    
-    else:
-        # Validation split logic
-        images_out_dir_train = data_root / "train"
-        images_out_dir_val = data_root / "val"
-        labels_out_dir_train = data_root / "train_labels"
-        labels_out_dir_val = data_root / "val_labels"
-        
-        # Clean existing directories
-        if images_out_dir_train.exists():
-            shutil.rmtree(images_out_dir_train)
-        if images_out_dir_val.exists():
-            shutil.rmtree(images_out_dir_val)
-            
-        labels_out_dir_train.mkdir(parents=True, exist_ok=True)
-        labels_out_dir_val.mkdir(parents=True, exist_ok=True)
-        
-        merged_parts_train = []
-        merged_parts_val = []
-        
-        for p in prefixes:
-            train_part, val_part = _extract_and_merge_for_prefix(
-                prefix=p,
-                video_dir=video_dir,
-                csv_dir=csv_dir,
-                images_out_dir=images_out_dir_train,
-                images_out_dir_val=images_out_dir_val,
-                val_frac=val_frac
-            )
-            merged_parts_train.append(train_part)
-            merged_parts_val.append(val_part)
-        
-        # Merge train parts
-        merged_df_train = pd.concat(merged_parts_train, ignore_index=True)
-        cols = ["filename"] + [c for c in merged_df_train.columns if c != "filename"]
-        merged_df_train = merged_df_train[cols]
-        
-        # Merge val parts
-        merged_df_val = pd.concat(merged_parts_val, ignore_index=True)
-        merged_df_val = merged_df_val[cols]
-        
-        # Save merged labels
-        merged_csv_path_train = labels_out_dir_train / "labels.csv"
-        merged_csv_path_val = labels_out_dir_val / "labels.csv"
-        
-        merged_df_train.to_csv(merged_csv_path_train, index=False)
-        merged_df_val.to_csv(merged_csv_path_val, index=False)
-        
-        print(f"[train] merged labels saved to: {merged_csv_path_train} (rows={len(merged_df_train)})")
-        print(f"[val] merged labels saved to: {merged_csv_path_val} (rows={len(merged_df_val)})")
-        
-        return (images_out_dir_train, images_out_dir_val), (merged_csv_path_train, merged_csv_path_val)
-
-
-def build_train(prefixes: List[str], video_dir: str | Path, csv_dir: str | Path,
-                data_root: str | Path = "data", val_frac: float = 0.0):
-    return build_split("train", prefixes, video_dir, csv_dir, data_root, val_frac)
-
-
-def build_test(prefixes: List[str], video_dir: str | Path, csv_dir: str | Path,
-               data_root: str | Path = "data"):
-    return build_split("test", prefixes, video_dir, csv_dir, data_root)
 
 def load_model(model_path: str, device: torch.device):
     """
