@@ -12,3 +12,4 @@ Pillow
 mlxtend
 scikit-learn
 wandb
+gdown

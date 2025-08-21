@@ -121,16 +121,17 @@ def calc_metrics(targets: torch.Tensor,
 
     return accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP
 
-
-
-def analyze_class_distribution_from_csv(csv_path):
-    """Analyze class distribution from labels CSV file"""
+def analyze_class_distribution_from_path(csv_path):
     df = pd.read_csv(csv_path)
+    analyze_class_distribution_from_df(df)
+
+
+def analyze_class_distribution_from_df(df, label="CSV"):
     label_cols = [c for c in df.columns if c != 'filename']
     
     total_samples = len(df)
     
-    print("\n=== CLASS DISTRIBUTION FROM CSV ===")
+    print(f"\n=== CLASS DISTRIBUTION FROM {label}===")
     print(f"Total samples: {total_samples}")
     print("-" * 50)
     
@@ -162,14 +163,14 @@ def analyze_class_distribution_from_csv(csv_path):
     print("-" * 50)
     
     # Sort by imbalance ratio to show most problematic classes
-    class_stats.sort(key=lambda x: x['imbalance_ratio'], reverse=True)
-    print("\nMOST IMBALANCED CLASSES (worst first):")
-    for stat in class_stats:
-        if stat['imbalance_ratio'] != float('inf'):
-            print(f"{stat['class']:15} - 1:{stat['imbalance_ratio']:6.1f} "
-                  f"({stat['pos_percent']:4.1f}% positive)")
+    #class_stats.sort(key=lambda x: x['imbalance_ratio'], reverse=True)
+    #print("\nMOST IMBALANCED CLASSES (worst first):")
+    #for stat in class_stats:
+    #    if stat['imbalance_ratio'] != float('inf'):
+    #        print(f"{stat['class']:15} - 1:{stat['imbalance_ratio']:6.1f} "
+    #              f"({stat['pos_percent']:4.1f}% positive)")
     
-    print("=" * 50)
+    #print("=" * 50)
     
     return class_stats
 

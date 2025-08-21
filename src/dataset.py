@@ -1,43 +1,34 @@
 # 0. Write a custom dataset class
-from torch.utils.data import Dataset
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
-from typing import Tuple, Dict, List
-import pandas as pd
+from torch.utils.data import Dataset
 from torchvision import transforms
-from pathlib import Path
-import numpy as np
+
 
 class MultiLabelImageDataset(Dataset):
   def __init__(self,
                root: str,
-               label_csv_path: str,
-               data_fraction: float = 1.0,
+               df: pd.DataFrame,
                transform=None):
     self.image_dir = Path(root)
-    
-    
-    full_labels_df = pd.read_csv(label_csv_path)
-    
-    if data_fraction < 1.0:
-      n_samples = int(len(full_labels_df) * data_fraction)
-      sample_indices = np.random.choice(len(full_labels_df), size=n_samples)
-      self.labels_df = full_labels_df.iloc[sample_indices].reset_index(drop=True)
-    else:
-      self.labels_df = full_labels_df
-    
+    self.df = df    
     self.transform = transform
-    self.classes, self.class_idx = self.find_classes(pd.read_csv(label_csv_path).columns)
+    self.classes, self.class_idx = self.find_classes(df.columns)
 
   def __len__(self):
     " Returns the total number of samples (already removes the header)."
-    return len(self.labels_df)
+    return len(self.df)
 
   def get_labels(self):
     return self.classes
 
   def __getitem__(self, index: int):
-    row = self.labels_df.iloc[index]
+    row = self.df.iloc[index]
     filename = row["filename"]
 
     # 1. Load image
@@ -61,7 +52,7 @@ class MultiLabelImageDataset(Dataset):
 
   def find_classes(self, csv_columns: pd.Index) -> Tuple[List[str], Dict[str, int]]:
     """Finds the classes and indexes in a csv file, excluding the first column."""
-    # Skip the first column
-    class_names = list(csv_columns[1:])
+    # Skip the filename column
+    class_names = list([c for c in csv_columns if c != 'filename'])
     class_to_idx = {cls_name: i for i, cls_name in enumerate(class_names)}
     return class_names, class_to_idx

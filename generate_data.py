@@ -11,7 +11,7 @@ def generate_data():
     video_path = Path("data/raw")
 
     if not video_path.exists():
-        raise RuntimeError(f"Video Path not found: {video_path}")
+        raise RuntimeError(f"Video Path not found: {video_path}. Try downloading the raw data with the `python generate_data.py` command.")
 
     images_out_dir = Path("data/images")
     labels_out_dir = Path("data/labels")
