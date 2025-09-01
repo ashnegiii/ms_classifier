@@ -32,7 +32,7 @@ class ViTB16():
         
         self.train_transform = transforms.Compose([
             transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
-            transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),  # More aggressive cropping
+            transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),  
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(degrees=15),
             transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),

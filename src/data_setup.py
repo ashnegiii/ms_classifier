@@ -1,7 +1,6 @@
 """
 Contains functionality for creating PyTorch DataLoader's for image classification data.
 """
-
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
@@ -44,27 +43,47 @@ def create_dataloaders(
             random_state=ExperimentConfig.RANDOM_SEED,
             shuffle=True,
         )
-        val_df, test_df = train_test_split(
-            temp_df,
-            test_size=test_split,
-            random_state=ExperimentConfig.RANDOM_SEED,
-            shuffle=True,
-        )
+        if val_split == 0.0:
+            val_df = pd.DataFrame(columns=df.columns)
+            test_df = temp_df
+        elif test_split == 0.0:
+            val_df = temp_df
+            test_df = pd.DataFrame(columns=df.columns)
+        else:
+            # proportion of Temp to go to Test
+            test_fraction_within_temp = test_split / (test_split + val_split)
+            val_df, test_df = train_test_split(
+                temp_df,
+                test_size=test_fraction_within_temp,
+                random_state=ExperimentConfig.RANDOM_SEED,
+                shuffle=True,
+            )
     else:
-
         def filter_by_episode(df, episodes):
             if not episodes:
                 return pd.DataFrame(columns=df.columns)
-            mask = df["filename"].str.split("_").str[0].isin(episodes)
-            return df[mask]
 
-        train_df = filter_by_episodes(df, episode_splits["train"])
-        val_df = filter_by_episodes(df, episode_splits["val"])
-        test_df = filter_by_episodes(df, episode_splits["test"])
+            # Always flatten
+            flat = []
+            for e in episodes:
+                if isinstance(e, list):
+                    flat.extend(e)
+                else:
+                    flat.append(e)
+            episodes = flat
+            
+            # Strip extension if present
+            base = df["filename"].str.replace(".jpg", "", regex=False)
+            base = base.str.split("_").str[0]  # before first "_"
+            return df[base.isin(set(episodes))]
+
+        train_df = filter_by_episode(df, episode_splits["train"])
+        val_df = filter_by_episode(df, episode_splits["val"])
+        test_df = filter_by_episode(df, episode_splits["test"])
 
     analyze_class_distribution_from_df(df=train_df, label="TRAINING")
-    if val_split > 0.0 or (episode_splits and episode_splits["val"]):
-        analyze_class_distribution_from_df(df=train_df, label="VALIDATION")
+    if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
+        analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
     analyze_class_distribution_from_df(df=test_df, label="TESTING")
     # -------------------------
     # Create datasets
@@ -74,11 +93,11 @@ def create_dataloaders(
         df=train_df,
         transform=train_transform,
     )
-    val_data = MultiLabelImageDataset(
-        root=images_dir,
-        df=val_df,
-        transform=test_transform,
-    )
+    
+    val_data = None
+    if len(val_df) > 0:
+      val_data = MultiLabelImageDataset(root=images_dir, df=val_df, transform=test_transform)
+    
     test_data = MultiLabelImageDataset(
         root=images_dir,
         df=test_df,
@@ -94,14 +113,16 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=device.type == "cuda",
     )
-
-    val_dataloader = DataLoader(
-        val_data,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=device.type == "cuda",
-    )
+    
+    val_dataloader = None
+    if val_data is not None:
+      val_dataloader = DataLoader(
+          val_data,
+          batch_size=batch_size,
+          shuffle=False,
+          num_workers=num_workers,
+          pin_memory=(device.type == "cuda"),
+      )
 
     test_dataloader = DataLoader(
         test_data,

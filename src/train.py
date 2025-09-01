@@ -87,7 +87,6 @@ def run_single_experiment(
                 train_split=config_dict["train_split"],
                 test_split=config_dict["test_split"],
                 val_split=config_dict["val_split"],
-                episode_splits=None,
             )
         )
         split_tag = f"dl{int(config_dict['train_split']*100)}"

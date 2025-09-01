@@ -148,8 +148,10 @@ data/val/
 data/videos/
 data/raw/*.avi
 data/raw/*.mp4
+data/raw/*.csv
 data/images/
-data/labels
+data/labels/
+data/predict/
 runs/
 wandb/
 
