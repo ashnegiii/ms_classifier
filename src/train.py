@@ -243,7 +243,7 @@ def main():
                 ExperimentConfig.WEIGHT_DECAY,
                 ExperimentConfig.OUTPUT_THRESHOLD,
                 ExperimentConfig.MAX_WEIGHT,
-                [ExperimentConfig.EPISODE_SPLITS],
+                ExperimentConfig.EPISODE_SPLITS,
             )
         )
     else:

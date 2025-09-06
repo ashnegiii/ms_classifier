@@ -33,12 +33,13 @@ def main():
         test_transform=test_transform,
         batch_size=32,
         num_workers=NUM_WORKERS,
-        device=device
+        device=device,
+        episode_splits=ExperimentConfig.EPISODE_SPLITS
     )
 
     # Load model with the correct architecture
     model = load_vit_model(
-        model_path="models/vitb16_unfreeze3_dl80_e3_bs32_lr0.001_wd0.001_th0.4_mw3_2025-08-23_22-28-25.pth",
+        model_path="models/vitb16_unfreeze3_episodes_e1_bs32_lr0.0001_wd0.001_th0.4_mw3_2025-09-02_02-01-57.pth",
         num_classes=len(class_names),
         device=device
     )
@@ -48,13 +49,13 @@ def main():
     loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimal_thresholds = {
             'kermit': 0.5,
-            'miss_piggy': 0.5,
-            'cook': 0.5,
-            'statler_waldorf': 0.5,
-            'rowlf_the_dog': 0.5,
-            'fozzie_bear': 0.5
+            'miss_piggy': 0.1,
+            'cook': 0.2,
+            'statler_waldorf': 0.1,
+            'rowlf_the_dog': 0.1,
+            'fozzie_bear': 0.1
         }
-    test_metrics = test_step(model, test_dataloader, class_names=class_names, loss_fn=loss_fn, device=device)
+    test_metrics = test_step(model, test_dataloader, optimal_thresholds=optimal_thresholds,class_names=class_names, loss_fn=loss_fn, device=device)
 
     print(f"  Test - Loss: {test_metrics['loss']:.4f}")
     print(f"  Test - Accuracy per class: {[f'{a:.4f}' for a in test_metrics['accuracy_per_class']]}")

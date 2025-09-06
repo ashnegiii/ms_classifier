@@ -11,14 +11,21 @@ class ExperimentConfig:
     VAL_SPLIT   = [0.0]  # 0 means skip
 
     # --- EPISODE-BASED ---
-    EPISODE_SPLITS = {
-        "train": [["02-01-01", "03-04-03", "03-04-17"]], # filename without the extension
-        "test":  [["02-04-04"]],
-        "val":   [[]]  # empty means skip
-    }
+    EPISODE_SPLITS = [
+        {  # with cook1
+            "train": [["02-01-01", "02-04-04","03-04-17", "cook1"]],
+            "test":  [["03-04-03"]],
+            "val":   [[]]
+        },
+        #{  # without cook1
+        #    "train": [["02-01-01", "02-04-04", "03-04-03"]],
+        #    "test":  [["03-04-17"]],
+        #    "val":   [[]]
+        #},
+    ]
 
     UNFREEZE_ENCODER_LAYERS = [3]
-    NUM_EPOCHS = [3]
+    NUM_EPOCHS = [2]
     BATCH_SIZE = [32]
     LEARNING_RATE = [0.0001]
     WEIGHT_DECAY = [0.001]

@@ -6,7 +6,7 @@ import cv2
 import pandas as pd
 
 
-def generate_data(video_dir: str, images_out_dir: str, labels_out_dir: str):
+def generate_data(video_dir: str, images_out_dir: str, labels_out_dir: str, delete_old: bool = False):
     """
     Extract frames and labels from a video folder.
 
@@ -25,9 +25,10 @@ def generate_data(video_dir: str, images_out_dir: str, labels_out_dir: str):
     labels_out_dir = Path(labels_out_dir)
 
     # cleanup old images and labels
-    print(f"Cleaning up {images_out_dir} and {labels_out_dir}...")
-    for f in glob.glob(str(images_out_dir) + "/*.jpg"):
-        os.remove(f)
+    if delete_old:
+        print(f"Cleaning up {images_out_dir} and {labels_out_dir}...")
+        for f in glob.glob(str(images_out_dir) + "/*.jpg"):
+            os.remove(f)
     for l in glob.glob(str(labels_out_dir) + "/*.csv"):
         os.remove(l)
 
@@ -37,14 +38,18 @@ def generate_data(video_dir: str, images_out_dir: str, labels_out_dir: str):
 
     # process videos
     video_paths = glob.glob(str(video_path) + "/*")
+    
     for v in video_paths:
-        if not v.endswith(".csv"):
-            process_vid(Path(v), images_out_dir)
+        # check if there no image with the prefix exists
+        if not glob.glob(str(images_out_dir / f"{Path(v).stem}_*.jpg")):
+            if not v.endswith(".csv"):
+                process_vid(Path(v), images_out_dir)
 
     # process CSV labels
     label_paths = glob.glob(str(video_path) + "/*.csv")
     for l in label_paths:
-        process_labels(Path(l), labels_out_dir)
+        if not glob.glob(str(labels_out_dir / f"{Path(l).stem}_*.csv")):
+            process_labels(Path(l), labels_out_dir)
 
 
 def process_labels(csv_path: Path, labels_out_dir: Path):
@@ -87,7 +92,8 @@ if __name__ == "__main__":
     generate_data(
         video_dir="data/raw",
         images_out_dir="data/images",
-        labels_out_dir="data/labels"
+        labels_out_dir="data/labels",
+        delete_old=False
     )
     
     #generate_data(
