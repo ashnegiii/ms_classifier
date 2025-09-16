@@ -198,7 +198,7 @@ def train(model: torch.nn.Module,
         optimal_thresholds = {
             'kermit': 0.5,        # Lower threshold (more common in test)
             'miss_piggy': 0.5,    # Lower threshold  
-            'cook': 0.5,          # Higher threshold (less common in test)
+            'cook': 0.4,          # Higher threshold (less common in test)
             'statler_waldorf': 0.5, # Higher threshold
             'rowlf_the_dog': 0.5, # Much higher (very rare in test)  
             'fozzie_bear': 0.5    # Lower threshold

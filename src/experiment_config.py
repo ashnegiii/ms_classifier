@@ -12,19 +12,45 @@ class ExperimentConfig:
 
     # --- EPISODE-BASED ---
     EPISODE_SPLITS = [
-        {  # with cook1
-            "train": [["02-01-01", "02-04-04","03-04-17", "cook1"]],
-            "test":  [["03-04-03"]],
-            "val":   [[]]
-        },
+    {
+        "train": [["02-04-04", "03-04-17", "03-04-03", "cook1"]],
+        "test":  [["02-01-01"]],
+        "val":   [[]]
+    },
+    {
+        "train": [["02-01-01", "03-04-17", "03-04-03", "cook1"]],
+        "test":  [["02-04-04"]],
+        "val":   [[]]
+    },
+    {
+        "train": [["02-01-01", "02-04-04", "03-04-03", "cook1"]],
+        "test":  [["03-04-17"]],
+        "val":   [[]]
+    },
+    {
+        "train": [["02-01-01", "02-04-04", "03-04-17", "cook1"]],
+        "test":  [["03-04-03"]],
+        "val":   [[]]
+    },
+    {
+        "train": [["02-01-01", "02-04-04", "03-04-17", "03-04-03"]],
+        "test":  [["cook1"]],
+        "val":   [[]]
+    }
+]
+        #{  # half split
+        #    "train": [["02-01-01", "02-04-04", "cook1"]],
+        #    "test":  [["03-04-03", "03-04-17", "02-04-05"]],
+        #    "val":   [[]]
+        #},
         #{  # without cook1
         #    "train": [["02-01-01", "02-04-04", "03-04-03"]],
         #    "test":  [["03-04-17"]],
         #    "val":   [[]]
         #},
-    ]
+    #]
 
-    UNFREEZE_ENCODER_LAYERS = [3]
+    UNFREEZE_ENCODER_LAYERS = [2]
     NUM_EPOCHS = [2]
     BATCH_SIZE = [32]
     LEARNING_RATE = [0.0001]
@@ -34,4 +60,4 @@ class ExperimentConfig:
     MAX_WEIGHT = [3]
 
     # the model's name: choose between 'vitb16', 'effnetb0', 'effnetb2'
-    model_name = ["vitb16"]
+    model_name = ["effnetb2"]

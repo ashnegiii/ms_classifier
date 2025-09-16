@@ -44,6 +44,12 @@ def create_model(model_name, out_features, unfreeze_encoder_layers, device):
             unfreeze_last_n=unfreeze_encoder_layers,
             device=device,
         )
+    elif model_name == "effnetb2":
+        return EfficientNetB2(
+            out_features=out_features,
+            unfreeze_last_n=unfreeze_encoder_layers,
+            device=device,
+        )
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -122,6 +128,7 @@ def run_single_experiment(
     # --------------------------
     # Training setup
     # --------------------------
+    #loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=calc_pos_weight(labels_dir, max_weight=3.0, device=device))
     loss_fn = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(
         model.model.parameters(),

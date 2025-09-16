@@ -282,6 +282,28 @@ def save_model(model: torch.nn.Module,
              f=model_save_path)
 
 
+def load_backbone(model_class, model_path: str, num_classes: int, device: torch.device):
+    """
+    Einheitlicher Loader für alle Backbone-Klassen (ViT, EfficientNet, ...)
+
+    Args:
+        model_class: Klassenobjekt (z.B. ViTB16 oder EfficientNetB2)
+        model_path: Pfad zur gespeicherten .pth Datei
+        num_classes: Anzahl der Klassen für den Klassifikator
+        device: torch.device ("cpu" oder "cuda")
+
+    Returns:
+        Instanziertes Backbone mit geladenen Gewichten (im eval-Modus)
+    """
+    # Backbone instanziieren
+    backbone = model_class(device=device, out_features=num_classes)
+
+    # State dict laden
+    state_dict = torch.load(model_path, map_location=device)
+    backbone.model.load_state_dict(state_dict)
+
+    return backbone.model.to(device).eval()
+
 def load_model(model_path: str, device: torch.device):
     """
     Lädt ein gespeichertes PyTorch Model von einer .pth Datei

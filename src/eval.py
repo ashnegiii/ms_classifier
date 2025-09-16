@@ -39,7 +39,7 @@ def main():
 
     # Load model with the correct architecture
     model = load_vit_model(
-        model_path="models/vitb16_unfreeze3_episodes_e1_bs32_lr0.0001_wd0.001_th0.4_mw3_2025-09-02_02-01-57.pth",
+        model_path="models/vitb16_unfreeze3_episodes_e2_bs32_lr1e-05_wd0_th0.4_mw3_2025-09-06_22-21-51.pth",
         num_classes=len(class_names),
         device=device
     )

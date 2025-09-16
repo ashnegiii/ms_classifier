@@ -152,6 +152,8 @@ data/raw/*.csv
 data/images/
 data/labels/
 data/predict/
+data/custom_images/
+data/custom_images_tmp/
 runs/
 wandb/
 

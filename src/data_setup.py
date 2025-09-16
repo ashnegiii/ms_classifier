@@ -80,11 +80,30 @@ def create_dataloaders(
         train_df = filter_by_episode(df, episode_splits["train"])
         val_df = filter_by_episode(df, episode_splits["val"])
         test_df = filter_by_episode(df, episode_splits["test"])
-
-    analyze_class_distribution_from_df(df=train_df, label="TRAINING")
-    if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
-        analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
-    analyze_class_distribution_from_df(df=test_df, label="TESTING")
+        
+        # few shot learning
+        if not test_df.empty and False: # Currently disabled
+            print("Applying few-shot sampling from test to training set.")
+            fewshot_df, test_remaining_df = train_test_split(
+                test_df,
+                test_size=0.95,
+                random_state=42,
+                stratify=test_df["label_col"] if "label_col" in test_df else None
+            )
+            # merge few-shot into training
+            train_df = pd.concat([train_df, fewshot_df], ignore_index=True)
+            test_df = test_remaining_df
+                
+            analyze_class_distribution_from_df(df=train_df, label="TRAINING")
+            if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
+                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
+            analyze_class_distribution_from_df(df=test_df, label="TESTING")
+        else:
+            print("No few-shot sampling applied.")
+            analyze_class_distribution_from_df(df=train_df, label="TRAINING")
+            if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
+                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
+            analyze_class_distribution_from_df(df=test_df, label="TESTING")
     # -------------------------
     # Create datasets
     # -------------------------

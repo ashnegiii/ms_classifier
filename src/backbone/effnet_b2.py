@@ -27,18 +27,22 @@ class EfficientNetB2():
             bias=True).to(device)
         )
         
+        
         self.train_transform = transforms.Compose([
-            transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC),
-            transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),  # More aggressive cropping
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=15),
-            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), shear=10),
+            transforms.RandomPerspective(distortion_scale=0.3, p=0.3),
+           transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
             transforms.RandomGrayscale(p=0.1),
-            transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.5)),
+            transforms.RandomAutocontrast(p=0.2),
+            transforms.RandomAdjustSharpness(2, p=0.3),
+            transforms.GaussianBlur(3, sigma=(0.1, 2.0)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            transforms.RandomErasing(p=0.3, scale=(0.02, 0.15))
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+            transforms.RandomErasing(p=0.5, scale=(0.02, 0.2)),
         ])
 
         self.test_transform = transforms.Compose([

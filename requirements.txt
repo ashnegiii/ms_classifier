@@ -13,3 +13,4 @@ mlxtend
 scikit-learn
 wandb
 gdown
+seaborn
