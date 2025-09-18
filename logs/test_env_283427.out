@@ -1,0 +1,11 @@
+=== Test Job started on Wed Sep 17 23:34:30 CEST 2025 ===
+Running on node: a-a100-q-6
+Torch version: 2.8.0+cu128
+CUDA version: 12.8
+CUDA available: True
+Device count: 1
+GPU name: NVIDIA A100-SXM4-80GB
+Tensor on GPU: tensor([[0.0585, 0.6814, 0.2126],
+        [0.2278, 0.1167, 0.8784],
+        [0.3017, 0.7582, 0.6935]], device='cuda:0')
+=== Test Job finished on Wed Sep 17 23:34:31 CEST 2025 ===

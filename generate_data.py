@@ -4,15 +4,15 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
-
+from typing import Optional
 
 def generate_data(
     video_dir: str,
     images_out_dir: str,
     labels_out_dir: str,
     delete_old: bool = False,
-    drop_empty_ratio: float = 0.0,   # NEW: fraction of empty (no-char) frames to drop [0.0..1.0]
-    random_state: int | None = 42    # NEW: for reproducible sampling
+    drop_empty_ratio: float = 0.0,   
+    random_state: int = 42   
 ):
     """
     Extract frames and labels from a video folder.
@@ -74,7 +74,7 @@ def process_labels(
     csv_path: Path,
     labels_out_dir: Path,
     drop_empty_ratio: float = 0.0,   # NEW
-    random_state: int | None = None  # NEW
+    random_state: Optional[int] = None  # NEW
 ):
     """
     Append labels for a single CSV into labels.csv, optionally down-sampling rows
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         images_out_dir="data/images",
         labels_out_dir="data/labels",
         delete_old=False,
-        drop_empty_ratio=0.6,
+        drop_empty_ratio=0.5,
         random_state=42
     )
 
