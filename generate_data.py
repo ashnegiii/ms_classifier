@@ -11,8 +11,13 @@ def generate_data(
     images_out_dir: str,
     labels_out_dir: str,
     delete_old: bool = False,
+<<<<<<< Updated upstream
     drop_empty_ratio: float = 0.0,   
     random_state: int = 42   
+=======
+    drop_empty_ratio: float = 0.0,
+    random_state: int | None = 42
+>>>>>>> Stashed changes
 ):
     """
     Extract frames and labels from a video folder.

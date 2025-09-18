@@ -34,7 +34,7 @@ class EfficientNetB2():
             transforms.RandomRotation(15),
             transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), shear=10),
             transforms.RandomPerspective(distortion_scale=0.3, p=0.3),
-           transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+            transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
             transforms.RandomGrayscale(p=0.1),
             transforms.RandomAutocontrast(p=0.2),
             transforms.RandomAdjustSharpness(2, p=0.3),

@@ -1,18 +1,20 @@
 from pathlib import Path
-import torch
-from torchvision import transforms
-from PIL import Image
-import matplotlib.pyplot as plt
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
-from gradcam import GradCAM
-from utils import load_backbone  # your custom loader
-from experiment_config import ExperimentConfig
+import torch
+from PIL import Image
+from torchvision import transforms
+
 from backbone.effnet_b2 import EfficientNetB2
+from experiment_config import ExperimentConfig
+from gradcam import GradCAM
+from utils import load_backbone
+
 # --- CONFIG ---
-MODEL_PATH = "models/effnetb2_unfreeze2_episodes_e2_bs32_lr0.0001_wd0.001_th0.4_mw3_2025-09-13_23-36-01.pth"
-IMAGE_DIR = Path("data/custom_images")  # folder with images to classify
+MODEL_PATH = "models/effnetb2_unfreeze2_episodes_e2_bs32_lr0.0001_wd0.001_th0.4_mw3_2025-09-17_22-36-00.pth"
+IMAGE_DIR = Path("data/custom_images")  
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 train_transform = transforms.Compose([
