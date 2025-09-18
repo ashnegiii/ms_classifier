@@ -73,8 +73,8 @@ def generate_data(
 def process_labels(
     csv_path: Path,
     labels_out_dir: Path,
-    drop_empty_ratio: float = 0.0,   # NEW
-    random_state: Optional[int] = None  # NEW
+    drop_empty_ratio: float = 0.0,
+    random_state: Optional[int] = None
 ):
     """
     Append labels for a single CSV into labels.csv, optionally down-sampling rows
