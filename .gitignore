@@ -168,3 +168,5 @@ models/
 
 base.exe.stackdump
 *.sh
+
+logs/
