@@ -1,10 +1,11 @@
 import glob
 import os
 from pathlib import Path
+from typing import Optional
 
 import cv2
 import pandas as pd
-from typing import Optional
+
 
 def generate_data(
     video_dir: str,

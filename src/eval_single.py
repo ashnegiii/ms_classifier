@@ -117,7 +117,7 @@ def main():
 
         # Generate GradCAM for predicted classes
         for class_idx, p in enumerate(probs):
-            if p >= 0.1:  # Show for any class with >10% confidence
+            if p >= 0.01:  # Show for any class with >10% confidence
                 print(f"Generating GradCAM for {class_names[class_idx]} ({p:.3f})")
                 
                 heatmap = gradcam.generate(class_idx, outputs, img_tensor)
