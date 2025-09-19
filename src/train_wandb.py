@@ -10,8 +10,10 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import engine_update
 import wandb
 # custom classes
+from backbone.effnet_b0 import EfficientNetB0
 from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
+from backbone.convnext_tiny import ConvNeXtTiny
 from data_setup import create_dataloaders
 from utils import (analyze_class_distribution_from_path, get_class_names,
                    save_model)
@@ -21,36 +23,41 @@ LABELS_CSV = Path("data/labels/labels.csv")
 NUM_WORKERS = 2
 
 EPISODE_SPLITS = [
-    {"train": [["02-04-04","03-04-17","03-04-03","cook-1","miss-piggy-1"]], "test": [["02-01-01"]], "val":[[]]},
+    {"train": [["cook-1"]], "test": [["cook-1"]], "val":[[]]},
     {"train": [["02-01-01","03-04-17","03-04-03","cook-1","miss-piggy-1"]], "test": [["02-04-04"]], "val":[[]]},
     {"train": [["02-01-01","02-04-04","03-04-03","cook-1","miss-piggy-1"]], "test": [["03-04-17"]], "val":[[]]},
     {"train": [["02-01-01","02-04-04","03-04-17","cook-1","miss-piggy-1"]], "test": [["03-04-03"]], "val":[[]]},
 ]
 
 def create_model(model_name: str, out_features: int, device: torch.device):
-    if model_name == "effnetb2":
-        wrapper = EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features)
+    if model_name in ["effnetb0", "effnetb2", "convnext_tiny"]:
+        if model_name == "effnetb0":
+            wrapper = EfficientNetB0(device=device, unfreeze_last_n=0, out_features=out_features)
+        elif model_name == "effnetb2":
+            wrapper = EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features)
+        elif model_name == "convnext_tiny":
+            wrapper = ConvNeXtTiny(device=device, unfreeze_last_n=0, out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     elif model_name == "vitb16":
         wrapper = ViTB16(device=device, unfreeze_last_n=0, out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     else:
         raise ValueError(f"Unknown model: {model_name}")
-    
+
 
 def freeze_backbone(model: nn.Module, model_name: str) -> None:
-    if model_name in ["effnetb2", "effnetb0"]:
+    if model_name in ["effnetb2", "effnetb0", "convnext_tiny"]:
         for p in model.features.parameters():
             p.requires_grad = False
     elif model_name == "vitb16":
         for p in model.encoder.parameters():
             p.requires_grad = False
 
+
 def unfreeze_last_n_blocks(model: nn.Module, model_name: str, n: int) -> None:
     if n is None or n <= 0:
         return
-    
-    if model_name in ["effnetb2", "effnetb0"]:
+    if model_name in ["effnetb2", "effnetb0", "convnext_tiny"]:
         for layer in model.features[-n:]:
             for p in layer.parameters():
                 p.requires_grad = True
@@ -59,16 +66,17 @@ def unfreeze_last_n_blocks(model: nn.Module, model_name: str, n: int) -> None:
             for p in layer.parameters():
                 p.requires_grad = True
 
-def head_parameters(model: nn.Module, model_name: str) -> Iterable[nn.Parameter]:
-    if model_name in ["effnetb2", "effnetb0"]:
+
+def head_parameters(model: nn.Module, model_name: str):
+    if model_name in ["effnetb2", "effnetb0", "convnext_tiny"]:
         return (p for p in model.classifier.parameters() if p.requires_grad)
     elif model_name == "vitb16":
         return (p for p in model.heads.parameters() if p.requires_grad)
 
-def backbone_blocks_last_to_first(model: nn.Module, model_name: str) -> List[nn.Module]:
-    if model_name in ["effnetb2", "effnetb0"]:
-        # Convert to python list of blocks (last -> first)
-        return list(model.features)[::-1] 
+
+def backbone_blocks_last_to_first(model: nn.Module, model_name: str):
+    if model_name in ["effnetb2", "effnetb0", "convnext_tiny"]:
+        return list(model.features)[::-1]
     elif model_name == "vitb16":
         return list(model.encoder.layers)[::-1]
 
@@ -107,7 +115,8 @@ def run_stage(model: nn.Module,
               test_loader,
               class_names: List[str],
               device: torch.device,
-              threshold: float) -> None:
+              threshold: float,
+              do_eval: bool = True) -> None:
     """Build param groups for this stage and train using engine.train."""
     
     if lr_backbone == 0.0:
@@ -120,12 +129,12 @@ def run_stage(model: nn.Module,
     
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     loss_fn = torch.nn.BCEWithLogitsLoss()
-    wandb.log({"_stage/start": stage_name}, commit=False)
+    wandb.log({f"stage_{stage_name}_start": 1}, commit=False)
     engine_update.train(
         model=model,
         train_dataloader=train_loader,
-        val_dataloader=val_loader,
-        test_dataloader=test_loader,
+        val_dataloader=val_loader if do_eval else None,
+        test_dataloader=test_loader if do_eval else None,
         loss_fn=loss_fn,
         optimizer=optimizer,
         epochs=epochs,
@@ -134,7 +143,7 @@ def run_stage(model: nn.Module,
         device=device,
         scheduler = scheduler
     )
-    wandb.log({"_stage/end": stage_name}, commit=True)
+    wandb.log({f"stage_{stage_name}_end": 1}, commit=True)
 
 
 def main():
@@ -183,7 +192,8 @@ def main():
         test_loader=test_loader,
         class_names=class_names,
         device=device,
-        threshold=float(cfg.threshold)
+        threshold=float(cfg.threshold),
+        do_eval = False
     )
 
 
@@ -206,7 +216,8 @@ def main():
         test_loader=test_loader,
         class_names=class_names,
         device=device,
-        threshold=float(cfg.threshold)
+        threshold=float(cfg.threshold),
+        do_eval = True
     )
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

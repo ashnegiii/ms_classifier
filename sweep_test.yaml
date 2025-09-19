@@ -7,11 +7,11 @@ metric:
 parameters:
     # --- data / splits ---
     episode_index:
-        values: [0, 1, 2, 3]
+        values: [0]
 
     # --- model choice ---
     model_name:
-        values: ['effnetb2', 'vitb16', 'convnext_tiny']
+        values: ['convnext_tiny', 'vitb16', 'effnetb0', 'effnetb2']
 
     # --- training knobs (shared) ---
     seed:
@@ -25,7 +25,7 @@ parameters:
 
     # --- 2-stage schedule (warmup -> finetune) ---
     warmup_epochs:
-        values: [1]
+        values: [2]
     lr_head_warmup:
         values: [0.001]
 
