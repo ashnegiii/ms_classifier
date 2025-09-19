@@ -221,7 +221,7 @@ def main():
     experiment_group = generate_experiment_group_id()
     print(f"[INFO] Experiment group: {experiment_group}")
     print(f"[INFO] Data analysis:")
-    analyze_class_distribution_from_path(labels_dir)
+    # analyze_class_distribution_from_path(labels_dir)
 
     if ExperimentConfig.SPLIT_MODE == "fraction":
         experiment_combinations = list(

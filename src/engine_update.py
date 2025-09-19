@@ -1,11 +1,13 @@
 
-import torch
-from tqdm.auto import tqdm
-from typing import Dict, List
-import wandb
+from pathlib import Path
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
+import torch
+from tqdm.auto import tqdm
+
+import wandb
 from utils import calc_metrics
 
 

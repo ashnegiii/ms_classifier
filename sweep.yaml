@@ -1,48 +1,47 @@
 program: train_wandb.py
 method: grid
 metric:
-  name: mAP
-  goal: maximize
+    name: mAP
+    goal: maximize
 
 parameters:
-  # --- data / splits ---
-  episode_index:
-    values: [0, 1, 2, 3]
-    
-  # --- model choice ---
-  model_name:
-    values: ["effnetb2", "vitb16"]
+    # --- data / splits ---
+    episode_index:
+        values: [0, 1, 2, 3]
 
-  # --- training knobs (shared) ---
-  seed:
-    values: [42]
-  batch_size:
-    values: [32]
-  weight_decay:
-    values: [1e-3]
-  threshold:
-    values: [0.4]
-  
-  # --- 2-stage schedule (warmup -> finetune) ---
-  warmup_epochs:
-    values: [3, 5]
-  lr_head_warmup:
-    values: [1e-3]
+    # --- model choice ---
+    model_name:
+        values: ['effnetb2', 'vitb16']
 
-  finetune_epochs:
-    values: [25]
-  unfreeze_last_n:
-    values: [1, 2]
-  lr_head_finetune:
-    values: [1e-3]
-  lr_backbone:
-    values: [3e-5]
-  llrd_gamma:
-    values: [0.6]
-  
-  # --- bookkeeping ---
-  project:
-    value: ["ms_classifier"]
-  group:
-    value: ["rq1-backbones"]
-  
+    # --- training knobs (shared) ---
+    seed:
+        values: [42]
+    batch_size:
+        values: [32]
+    weight_decay:
+        values: [1e-3]
+    threshold:
+        values: [0.4]
+
+    # --- 2-stage schedule (warmup -> finetune) ---
+    warmup_epochs:
+        values: [3, 5]
+    lr_head_warmup:
+        values: [1e-3]
+
+    finetune_epochs:
+        values: [25]
+    unfreeze_last_n:
+        values: [1, 2]
+    lr_head_finetune:
+        values: [1e-3]
+    lr_backbone:
+        values: [3e-5]
+    llrd_gamma:
+        values: [0.6]
+
+    # --- bookkeeping ---
+    project:
+        value: ms_classifier
+    group:
+        value: rq1-backbones

@@ -1,19 +1,20 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Iterable, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
+import engine_update
 import wandb
-
 # custom classes
 from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
 from data_setup import create_dataloaders
-from utils import get_class_names, save_model, analyze_class_distribution_from_path
-import engine
+from utils import (analyze_class_distribution_from_path, get_class_names,
+                   save_model)
 
 IMAGES_DIR = Path("data/images")
 LABELS_CSV = Path("data/labels/labels.csv")
@@ -29,9 +30,11 @@ EPISODE_SPLITS = [
 def create_model(model_name: str, out_features: int, device: torch.device) -> nn.Module:
     if model_name == "effnetb2":
         # init with everything frozen (we’ll control freezing per stage)
-        return EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features).model
+        wrapper = EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features)
+        return wrapper.model, wrapper.train_transform, wrapper.test_transform
     elif model_name == "vitb16":
-        return ViTB16(device=device, unfreeze_last_n=0, out_features=out_features).model
+        wrapper = ViTB16(device=device, unfreeze_last_n=0, out_features=out_features).model
+        return wrapper.model, wrapper.train_transform, wrapper.test_transform
     else:
         raise ValueError(f"Unknown model: {model_name}")
     
@@ -115,9 +118,10 @@ def run_stage(model: nn.Module,
         param_groups = build_param_groups_llrd(model, model_name, lr_head, lr_backbone, llrd_gamma)
         optimizer = torch.optim.AdamW(param_groups, weight_decay=weight_decay)
     
+    scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     loss_fn = torch.nn.BCEWithLogitsLoss()
     wandb.log({"_stage/start": stage_name}, commit=False)
-    engine.train(
+    engine_update.train(
         model=model,
         train_dataloader=train_loader,
         val_dataloader=val_loader,
@@ -128,6 +132,7 @@ def run_stage(model: nn.Module,
         threshold=threshold,
         class_names=class_names,
         device=device,
+        scheduler = scheduler
     )
     wandb.log({"_stage/end": stage_name}, commit=True)
 
@@ -143,19 +148,19 @@ def main():
         torch.cuda.manual_seed(cfg.seed)
 
     # 2) Data + class names
-    analyze_class_distribution_from_path(LABELS_CSV)
+    # analyze_class_distribution_from_path(LABELS_CSV)
     out_features = len(get_class_names(csv_path=LABELS_CSV))
 
     # 3) Model
-    model = create_model(cfg.model_name, out_features, device)
+    model, train_transform, test_transform = create_model(cfg.model_name, out_features, device)
     model_name_for_log = cfg.model_name
 
     # 4) Dataloaders (episode vs fraction)
     split = EPISODE_SPLITS[cfg.episode_index]
     train_loader, val_loader, test_loader, class_names = create_dataloaders(
         images_dir=IMAGES_DIR,
-        train_transform=model.train_transform,
-        test_transform=model.test_transform,
+        train_transform=train_transform,
+        test_transform=test_transform,
         batch_size=cfg.batch_size,
         num_workers=NUM_WORKERS,
         device=device,
@@ -210,5 +215,25 @@ def main():
     wandb.save(os.path.join("models", ckpt_name))
     wandb.finish()
 
+DEFAULT_CONFIG = dict(
+    project="muppet-show-classifier",
+    group=None,
+    seed=42,
+    model_name="effnetb2",
+    batch_size=32,
+    warmup_epochs=2,
+    finetune_epochs=5,
+    lr_head_warmup=1e-3,
+    lr_head_finetune=1e-4,
+    lr_backbone=1e-5,
+    llrd_gamma=0.9,
+    weight_decay=1e-4,
+    threshold=0.5,
+    unfreeze_last_n=2,
+    episode_index=0
+)
+
 if __name__ == "__main__":
+    run = wandb.init(project=DEFAULT_CONFIG["project"], config=DEFAULT_CONFIG)
+    cfg = wandb.config
     main()
