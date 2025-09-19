@@ -62,49 +62,6 @@ def train_step(model: torch.nn.Module,
             "mAP_macro": mAP}
 
 
-def test_step_video(model: torch.nn.Module,
-               dataloader: torch.utils.data.DataLoader,
-               class_names: List[str],
-               device: torch.device,
-               optimal_thresholds: Dict[str, float],
-               output_csv_path: str
-               ):
-    """Predict Image Frames from videos for labelling data."""
-    model.eval()
-    all_preds = []
-    with torch.inference_mode():
-        pbar = tqdm(dataloader, desc="Video Eval", leave=False)
-        for X, y in pbar:
-            X, y = X.to(device), y.to(device)
-            
-            logits = model(X)
-            probs = torch.sigmoid(logits).cpu().numpy()
-            
-            y_pred_np = np.zeros_like(probs, dtype=int)
-            
-            for idx, class_name in enumerate(class_names):
-                threshold = optimal_thresholds[class_name]
-                y_pred_np[:, idx] = (probs[:, idx] >= threshold).astype(int)
-            all_preds.append(y_pred_np)
-        
-        # stack all predictions
-        all_preds = np.vstack(all_preds)
-        
-        frame_indices = np.arange(len(all_preds))
-        
-        df = pd.DataFrame(all_preds, columns=class_names)
-        df.insert(0, "frame", frame_indices)
-        
-        output_path = Path(output_csv_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        df.to_excel(output_path, index=False)
-        
-        
-        print(f"Labels written to {output_path}")
-        return df
-
-
 def test_step(model: torch.nn.Module,
               dataloader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
@@ -195,15 +152,7 @@ def train(model: torch.nn.Module,
         print(f"  Train - Average Precision per class: {[f'{a:.4f}' for a in train_metrics['ap_per_class']]}")
         print(f"  Train - mAP: {train_metrics['mAP_macro']:.4f}")
         
-        optimal_thresholds = {
-            'kermit': 0.5,        # Lower threshold (more common in test)
-            'miss_piggy': 0.5,    # Lower threshold  
-            'cook': 0.4,          # Higher threshold (less common in test)
-            'statler_waldorf': 0.5, # Higher threshold
-            'rowlf_the_dog': 0.5, # Much higher (very rare in test)  
-            'fozzie_bear': 0.5    # Lower threshold
-        }
-        test_metrics = test_step(model=model, dataloader=test_dataloader, optimal_thresholds=optimal_thresholds, loss_fn=loss_fn, class_names=class_names, device=device)
+        test_metrics = test_step(model=model, dataloader=test_dataloader, optimal_thresholds=threshold, loss_fn=loss_fn, class_names=class_names, device=device)
 
         # Store data for custom plots
         epoch_data.append(epoch + 1)
