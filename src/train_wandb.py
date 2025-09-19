@@ -27,13 +27,12 @@ EPISODE_SPLITS = [
     {"train": [["02-01-01","02-04-04","03-04-17","cook-1","miss-piggy-1"]], "test": [["03-04-03"]], "val":[[]]},
 ]
 
-def create_model(model_name: str, out_features: int, device: torch.device) -> nn.Module:
+def create_model(model_name: str, out_features: int, device: torch.device):
     if model_name == "effnetb2":
-        # init with everything frozen (we’ll control freezing per stage)
         wrapper = EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     elif model_name == "vitb16":
-        wrapper = ViTB16(device=device, unfreeze_last_n=0, out_features=out_features).model
+        wrapper = ViTB16(device=device, unfreeze_last_n=0, out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     else:
         raise ValueError(f"Unknown model: {model_name}")
@@ -110,6 +109,7 @@ def run_stage(model: nn.Module,
               device: torch.device,
               threshold: float) -> None:
     """Build param groups for this stage and train using engine.train."""
+    
     if lr_backbone == 0.0:
         # head-only training
         params = list(head_parameters(model, model_name))
@@ -141,7 +141,6 @@ def main():
     run = wandb.init(project=wandb.config.get("project", "muppet-show-classifier"),
                      group=wandb.config.get("group", None))
     cfg = wandb.config
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(cfg.seed)
     if device.type == "cuda":
@@ -174,18 +173,19 @@ def main():
         model=model,
         model_name=model_name_for_log,
         stage_name="warmup_head",
-        epochs=cfg.warmup_epochs,
-        lr_head=cfg.lr_head_warmup,
-        lr_backbone=0.0,              # head-only
-        llrd_gamma=cfg.llrd_gamma,
-        weight_decay=cfg.weight_decay,
+        epochs=int(cfg.warmup_epochs),
+        lr_head=float(cfg.lr_head_warmup),
+        lr_backbone=0.0,  # head-only
+        llrd_gamma=float(cfg.llrd_gamma),
+        weight_decay=float(cfg.weight_decay),
         train_loader=train_loader,
         val_loader=val_loader,
         test_loader=test_loader,
         class_names=class_names,
         device=device,
-        threshold=cfg.threshold
+        threshold=float(cfg.threshold)
     )
+
 
     # Stage 2: finetune (unfreeze top-n, small LR with LLRD)
     # ensure clean state
@@ -196,17 +196,17 @@ def main():
         model=model,
         model_name=model_name_for_log,
         stage_name=f"finetune_top{cfg.unfreeze_last_n}",
-        epochs=cfg.finetune_epochs,
-        lr_head=cfg.lr_head_finetune,
-        lr_backbone=cfg.lr_backbone,
-        llrd_gamma=cfg.llrd_gamma,
-        weight_decay=cfg.weight_decay,
+        epochs=int(cfg.finetune_epochs),
+        lr_head=float(cfg.lr_head_finetune),
+        lr_backbone=float(cfg.lr_backbone),
+        llrd_gamma=float(cfg.llrd_gamma),
+        weight_decay=float(cfg.weight_decay),
         train_loader=train_loader,
         val_loader=val_loader,
         test_loader=test_loader,
         class_names=class_names,
         device=device,
-        threshold=cfg.threshold
+        threshold=float(cfg.threshold)
     )
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

@@ -1,4 +1,4 @@
-program: train_wandb.py
+program: src/train_wandb.py
 method: grid
 metric:
     name: mAP
@@ -19,7 +19,7 @@ parameters:
     batch_size:
         values: [32]
     weight_decay:
-        values: [1e-3]
+        values: [0.001]
     threshold:
         values: [0.4]
 
@@ -27,16 +27,16 @@ parameters:
     warmup_epochs:
         values: [3, 5]
     lr_head_warmup:
-        values: [1e-3]
+        values: [0.001]
 
     finetune_epochs:
         values: [25]
     unfreeze_last_n:
         values: [1, 2]
     lr_head_finetune:
-        values: [1e-3]
+        values: [0.001]
     lr_backbone:
-        values: [3e-5]
+        values: [0.00003]
     llrd_gamma:
         values: [0.6]
 
