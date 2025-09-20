@@ -75,7 +75,8 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         f"{split_tag}_e{config_dict['num_epochs']}_bs{config_dict['batch_size']}_"
         f"lr{config_dict['learning_rate']}_wd{config_dict['weight_decay']}_"
         f"th{config_dict['output_threshold']}_mw{config_dict['max_weight']}_"
-        f"sch{config_dict['scheduler']}_{timestamp}"
+        f"sch{config_dict['scheduler']}-ss{config_dict['step_size']}-g{config_dict['gamma']}_"
+        f"{timestamp}"
     )
     model_name = f"{experiment_name}.pth"
 
@@ -91,11 +92,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     scheduler = None
     if config_dict["scheduler"] == "StepLR":
         scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=ExperimentConfig.STEP_SIZE, gamma=ExperimentConfig.GAMMA
-        )
-    elif config_dict["scheduler"] == "CosineAnnealingLR":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config_dict["num_epochs"]
+            optimizer, step_size=config_dict["step_size"], gamma=config_dict["gamma"]
         )
     elif config_dict["scheduler"] == "None":
         scheduler = None
@@ -107,7 +104,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         job_type="hyperparameter_sweep",
         name=experiment_name,
         config={
-            "experiment_group": experiment_group,
+            "group": experiment_group,
             "model": model.model_name,
             "unfreeze_encoder_layers": config_dict["unfreeze_encoder_layers"],
             "episodes": config_dict["episodes"],
@@ -120,9 +117,12 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             "output_threshold": config_dict["output_threshold"],
             "max_weight": config_dict["max_weight"],
             "scheduler": config_dict["scheduler"],
+            "step_size": config_dict["step_size"],
+            "gamma": config_dict["gamma"],
             "device": str(device),
             "num_classes": out_features,
             "class_names": class_names,
+            "experiment_group": experiment_group,  # for filtering in W&B
         },
     )
 
@@ -168,7 +168,9 @@ def main():
             ExperimentConfig.OUTPUT_THRESHOLD,
             ExperimentConfig.MAX_WEIGHT,
             ExperimentConfig.EPISODE_SPLITS,
-            ExperimentConfig.SCHEDULER,  # now scheduler is part of the sweep
+            ExperimentConfig.SCHEDULER,
+            ExperimentConfig.STEP_SIZE,
+            ExperimentConfig.GAMMA,
         )
     )
     total_experiments = len(experiment_combinations)
@@ -187,6 +189,8 @@ def main():
             max_weight,
             episodes,
             scheduler_name,
+            step_size,
+            gamma,
         ) = combo
 
         config_dict = {
@@ -200,6 +204,8 @@ def main():
             "max_weight": max_weight,
             "episodes": episodes,
             "scheduler": scheduler_name,
+            "step_size": step_size,
+            "gamma": gamma,
         }
 
         run_single_experiment(config_dict, i, total_experiments, experiment_group)
