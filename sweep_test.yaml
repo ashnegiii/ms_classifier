@@ -7,7 +7,7 @@ metric:
 parameters:
     # --- data / splits ---
     episode_index:
-        values: [0]
+        values: [0, 1, 2, 3]
 
     # --- model choice ---
     model_name:

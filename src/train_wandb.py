@@ -23,10 +23,10 @@ LABELS_CSV = Path("data/labels/labels.csv")
 NUM_WORKERS = 2
 
 EPISODE_SPLITS = [
-    {"train": [["cook-1"]], "test": [["cook-1"]], "val":[[]]},
-    {"train": [["02-01-01","03-04-17","03-04-03","cook-1","miss-piggy-1"]], "test": [["02-04-04"]], "val":[[]]},
-    {"train": [["02-01-01","02-04-04","03-04-03","cook-1","miss-piggy-1"]], "test": [["03-04-17"]], "val":[[]]},
-    {"train": [["02-01-01","02-04-04","03-04-17","cook-1","miss-piggy-1"]], "test": [["03-04-03"]], "val":[[]]},
+    {"train": [["02-04-04","03-04-17","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["02-01-01"]], "val":[[]]},
+    {"train": [["02-01-01","03-04-17","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["02-04-04"]], "val":[[]]},
+    {"train": [["02-01-01","02-04-04","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["03-04-17"]], "val":[[]]},
+    {"train": [["02-01-01","02-04-04","03-04-17","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["03-04-03"]], "val":[[]]},
 ]
 
 def create_model(model_name: str, out_features: int, device: torch.device):

@@ -141,7 +141,7 @@ if __name__ == "__main__":
         video_dir="data/raw",
         images_out_dir="data/images",
         labels_out_dir="data/labels",
-        delete_old=True,
+        delete_old=False,
         drop_empty_ratio=0.5,
         random_state=42
     )

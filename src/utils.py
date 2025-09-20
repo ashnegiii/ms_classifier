@@ -16,7 +16,6 @@ from torch import nn
 from torch.utils.data import WeightedRandomSampler
 from torchvision import transforms
 
-SUPPORTED_VIDEO_EXTS = [".mp4", ".avi"]
 
 def find_optimal_thresholds(
     model: torch.nn.Module,
@@ -123,6 +122,7 @@ def calc_metrics(targets: torch.Tensor,
 
 def analyze_class_distribution_from_path(csv_path):
     df = pd.read_csv(csv_path)
+    print(f"CSV Path: {csv_path}")
     analyze_class_distribution_from_df(df)
 
 
