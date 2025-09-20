@@ -1,207 +1,162 @@
+from typing import Dict, List, Optional
 
+import numpy as np
 import torch
 from tqdm.auto import tqdm
-from typing import Dict, List
+
 import wandb
-import numpy as np
-import pandas as pd
-from pathlib import Path
 from utils import calc_metrics
 
-def train_step(model: torch.nn.Module,
-               dataloader: torch.utils.data.DataLoader,
-               loss_fn: torch.nn.Module,
-               optimizer: torch.optim.Optimizer,
-               class_names: List[str],
-               device: torch.device,
-               optimal_thresholds: Dict[str, float] = None,
-               threshold: float = None) -> Dict[str, float]:
-    """Enhanced train step with metrics tracking"""
-    model.train()
-    running_loss = 0
-    
-    all_logits = []
-    all_targets = []
-    pbar = tqdm(dataloader, desc="Train", leave=False)
-    
-    for (X, y) in pbar:
-        X, y = X.to(device), y.to(device).float()
-        
-        # Forward pass
-        logits = model(X)
-        loss = loss_fn(logits, y)
-        running_loss += loss.item()
-        
-        optimizer.zero_grad()
-        loss.backward()                
-        optimizer.step()
-        
-        with torch.inference_mode():
-            all_logits.append(logits.detach())
-            all_targets.append(y.detach())
 
-        pbar.set_postfix(loss=f"{loss.item():.4f}")
-    
-    avg_loss = running_loss / len(dataloader)
-    logits = torch.cat(all_logits, dim=0)
-    targets = torch.cat(all_targets, dim=0)
-
-    if optimal_thresholds:
-        accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP = calc_metrics(targets=targets, logits=logits, optimal_thresholds=optimal_thresholds, class_names=class_names)
-    elif threshold:
-        accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP = calc_metrics(targets=targets, logits=logits, threshold=threshold, class_names=class_names)
-    else:
-        raise ValueError("Either optimal_thresholds or threshold must be provided for metrics calculation.")
-    return {
-            "loss": avg_loss,
-            "recall_per_class": recall_per_class,
-            "accuracy_per_class": accuracy_per_class,
-            "precision_per_class": precision_per_class,
-            "f1_per_class": f1_per_class,
-            "ap_per_class": ap_per_class,
-            "mAP_macro": mAP}
-
-
-def test_step(model: torch.nn.Module,
+def run_epoch(model: torch.nn.Module,
               dataloader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
-              class_names: List[str],
               device: torch.device,
-              optimal_thresholds: Dict[str, float] = None,
-              threshold: float = None) -> Dict[str, float]:
-    """Enhanced test step with metrics tracking"""
-    model.eval()
-    running_loss = 0.0
-    running_loss_plain = 0.0
-    all_logits = []
-    all_targets = []
-    plain_loss_fn = torch.nn.BCEWithLogitsLoss()
-    with torch.inference_mode():
-        pbar = tqdm(dataloader, desc="Eval", leave=False)
+              optimizer: Optional[torch.optim.Optimizer] = None):
+    """Run one epoch (train if optimizer given, else eval)."""
+    is_train = optimizer is not None
+    model.train(is_train)
+
+    total_loss = 0.0
+    all_logits, all_targets = [], []
+
+    context = torch.enable_grad() if is_train else torch.inference_mode()
+    with context:
+        pbar = tqdm(dataloader, desc="Train" if is_train else "Eval", leave=False)
         for X, y in pbar:
             X, y = X.to(device), y.to(device).float()
-            
+
             logits = model(X)
             loss = loss_fn(logits, y)
-            loss_plain = plain_loss_fn(logits, y)
-            running_loss += loss.item()
-            running_loss_plain += loss_plain.item()
+            total_loss += loss.item()
 
-            with torch.inference_mode():
-                all_logits.append(logits)
-                all_targets.append(y)
-            
+            if is_train:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            all_logits.append(logits.detach())
+            all_targets.append(y.detach())
             pbar.set_postfix(loss=f"{loss.item():.4f}")
-    
-    avg_loss = running_loss / len(dataloader)
-    avg_loss_plain = running_loss_plain / len(dataloader)
+
+    avg_loss = total_loss / len(dataloader)
     logits = torch.cat(all_logits, dim=0)
     targets = torch.cat(all_targets, dim=0)
 
+    return {"loss": avg_loss, "logits": logits, "targets": targets}
 
-    if optimal_thresholds:
-        accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP = calc_metrics(targets=targets, logits=logits, optimal_thresholds=optimal_thresholds, class_names=class_names)
-    elif threshold:
-        accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP = calc_metrics(targets=targets, logits=logits, threshold=threshold, class_names=class_names)
-    else:
-        raise ValueError("Either optimal_thresholds or threshold must be provided for metrics calculation.")
-    
-    return {
-            "loss": avg_loss,
-            "loss_plain": avg_loss_plain,
-            "recall_per_class": recall_per_class,
-            "accuracy_per_class": accuracy_per_class,
-            "precision_per_class": precision_per_class,
-            "f1_per_class": f1_per_class,
-            "ap_per_class": ap_per_class,
-            "mAP_macro": mAP}
-    
+
+def evaluate_metrics(logits, targets, class_names, threshold=0.5):
+    acc, prec, rec, f1, ap, mAP = calc_metrics(
+        targets=targets, logits=logits,
+        threshold=threshold, class_names=class_names
+    )
+    per_class = {
+        name: {
+            "accuracy": acc[i],
+            "precision": prec[i],
+            "recall": rec[i],
+            "f1": f1[i],
+            "ap": ap[i],
+        }
+        for i, name in enumerate(class_names)
+    }
+    return {"per_class": per_class, "macro": {"mAP": mAP}}
+
 
 def train(model: torch.nn.Module,
-          train_dataloader: torch.utils.data.DataLoader,
-          val_dataloader: torch.utils.data.DataLoader,
-          test_dataloader: torch.utils.data.DataLoader,
-          optimizer: torch.optim.Optimizer,
-          loss_fn: torch.nn.Module,
-          epochs: int,
+          train_dataloader,
+          val_dataloader,
+          test_dataloader,
+          optimizer,
+          loss_fn,
+          epochs,
           class_names: List[str],
           device: torch.device,
-          threshold: float = 0.5) -> Dict[str, List[float]]:
-    """Trains and tests a PyTorch model with W&B logging."""
-    
-    # Store metrics for custom plots
-    epoch_data = []
-    loss_train_data = []
-    loss_test_data = []
-    precision_data = {class_name: [] for class_name in class_names}
-    recall_data = {class_name: [] for class_name in class_names}
-    optimal_thresholds = {name: threshold for name in class_names}
-    
-    # Loop through training and testing steps for a number of epochs
+          threshold: float = 0.5,
+          scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None):
+
+    # Tracking
+    epoch_idx = [0]  # start baseline
+    loss_train = [1.0]
+    loss_val, loss_test = [1.0], [1.0]
+    precision_data = {name: [0.0] for name in class_names}
+    recall_data = {name: [0.0] for name in class_names}
+
     for epoch in tqdm(range(epochs)):
-        # Train and test with metrics
-        train_metrics = train_step(model=model, dataloader=train_dataloader, threshold=threshold, loss_fn=loss_fn, optimizer=optimizer, class_names=class_names, device=device)
-        
+        # --- Train ---
+        train_out = run_epoch(model, train_dataloader, loss_fn, device, optimizer)
+        train_metrics = evaluate_metrics(train_out["logits"], train_out["targets"], class_names, threshold)
+
+        # --- Validation (optional) ---
+        val_out, val_metrics = None, None
+        if val_dataloader is not None and len(val_dataloader) > 0:
+            val_out = run_epoch(model, val_dataloader, loss_fn, device)
+            val_metrics = evaluate_metrics(val_out["logits"], val_out["targets"], class_names, threshold)
+
+        # --- Test (optional) ---
+        test_out, test_metrics = None, None
+        if test_dataloader is not None and len(test_dataloader) > 0:
+            test_out = run_epoch(model, test_dataloader, loss_fn, device)
+            test_metrics = evaluate_metrics(test_out["logits"], test_out["targets"], class_names, threshold)
+
+        # Scheduler step
+        if scheduler:
+            scheduler.step()
+
+        # --- Store ---
+        epoch_idx.append(epoch + 1)
+        loss_train.append(train_out["loss"])
+        if val_out is not None:
+            loss_val.append(val_out["loss"])
+        if test_out is not None:
+            loss_test.append(test_out["loss"])
+
+        if test_metrics is not None:
+            for cname in class_names:
+                precision_data[cname].append(test_metrics["per_class"][cname]["precision"])
+                recall_data[cname].append(test_metrics["per_class"][cname]["recall"])
+
+        # --- Console print aligned ---
         print(f"\nEpoch {epoch+1}/{epochs}")
-        
-        print(f"  Train - Loss: {train_metrics['loss']:.4f}")
-        print(f"  Train - Accuracy per class: {[f'{a:.4f}' for a in train_metrics['accuracy_per_class']]}")
-        print(f"  Train - Precision per class: {[f'{a:.4f}' for a in train_metrics['precision_per_class']]}")
-        print(f"  Train - Recall per class: {[f'{a:.4f}' for a in train_metrics['recall_per_class']]}")
-        print(f"  Train - F1 per class: {[f'{a:.4f}' for a in train_metrics['f1_per_class']]}")
-        print(f"  Train - Average Precision per class: {[f'{a:.4f}' for a in train_metrics['ap_per_class']]}")
-        print(f"  Train - mAP: {train_metrics['mAP_macro']:.4f}")
-        
-        test_metrics = test_step(model=model, dataloader=test_dataloader, optimal_thresholds=threshold, loss_fn=loss_fn, class_names=class_names, device=device)
+        print(f"  Train - Loss: {train_out['loss']:.4f}")
+        if val_out is not None:
+            print(f"  Val   - Loss: {val_out['loss']:.4f}")
+        if test_out is not None:
+            print(f"  Test  - Loss: {test_out['loss']:.4f}")
+            print(f"  Test  - mAP:  {test_metrics['macro']['mAP']:.4f}")
+            print("  Per-class metrics:")
+            print(f"{'Class':15} {'Acc':>8} {'Prec':>8} {'Rec':>8} {'F1':>8} {'AP':>8}")
+            for cname in class_names:
+                m = test_metrics["per_class"][cname]
+                print(f"{cname:15} {m['accuracy']:8.4f} {m['precision']:8.4f} "
+                      f"{m['recall']:8.4f} {m['f1']:8.4f} {m['ap']:8.4f}")
 
-        # Store data for custom plots
-        epoch_data.append(epoch + 1)
-        loss_train_data.append(train_metrics['loss'])
-        loss_test_data.append(test_metrics['loss'])
-        
-        for i, class_name in enumerate(class_names):
-            precision_data[class_name].append(test_metrics['precision_per_class'][i])
-            recall_data[class_name].append(test_metrics['recall_per_class'][i])
-        
+        # --- W&B logging ---
         log_dict = {
-            "mAP": test_metrics['mAP_macro']
+            "epoch": epoch + 1,
+            "loss_train": train_out["loss"],
         }
-        
-        # Add per-class accuracy and average precision and f1score
-        for i, class_name in enumerate(class_names):
-            log_dict[f"accuracy_{class_name}"] = test_metrics['accuracy_per_class'][i]
-            log_dict[f"f1_{class_name}"] = test_metrics['f1_per_class'][i]
-            log_dict[f"avg_precision_{class_name}"] = test_metrics['ap_per_class'][i]
+        if val_out is not None:
+            log_dict["loss_val"] = val_out["loss"]
+        if test_out is not None:
+            log_dict["loss_test"] = test_out["loss"]
+            log_dict["mAP"] = test_metrics["macro"]["mAP"]
 
-        # Create custom plots
-        # Loss plot (train vs test)
-        log_dict["loss_plot"] = wandb.plot.line_series(
-            xs=epoch_data,
-            ys=[loss_train_data, loss_test_data],
-            keys=["train", "test"],
-            title="Training vs Test Loss",
-            xname="Epoch"
-        )
-        
-        # Precision/Recall plots for each class
-        for class_name in class_names:
-            log_dict[f"precision_recall_{class_name}"] = wandb.plot.line_series(
-                xs=epoch_data,
-                ys=[precision_data[class_name], recall_data[class_name]],
-                keys=["precision", "recall"],
-                title=f"Precision & Recall - {class_name}",
-                xname="Epoch"
-            )
-        
-        # Log everything to W&B
+        if test_metrics is not None:
+            for cname in class_names:
+                for metric, val in test_metrics["per_class"][cname].items():
+                    log_dict[f"{metric}_{cname}"] = val
+
+        # Confusion matrix logging
+        if test_out is not None:
+            preds_bin = (test_out["logits"].sigmoid() > threshold).cpu().numpy()
+            y_true_bin = test_out["targets"].cpu().numpy()
+            for i, cname in enumerate(class_names):
+                log_dict[f"conf_matrix_{cname}"] = wandb.plot.confusion_matrix(
+                    preds=preds_bin[:, i],
+                    y_true=y_true_bin[:, i],
+                    class_names=[f"not_{cname}", cname]
+                )
+
         wandb.log(log_dict, step=epoch + 1)
-
-
-        print(f"  Test - Loss: {test_metrics['loss']:.4f}")
-        print(f"  Plain - Loss: {test_metrics['loss_plain']:.4f}")
-        print(f"  Test - Accuracy per class: {[f'{a:.4f}' for a in test_metrics['accuracy_per_class']]}")
-        print(f"  Test - Precision per class: {[f'{a:.4f}' for a in test_metrics['precision_per_class']]}")
-        print(f"  Test - Recall per class: {[f'{a:.4f}' for a in test_metrics['recall_per_class']]}")
-        print(f"  Test - F1 per class: {[f'{a:.4f}' for a in test_metrics['f1_per_class']]}")
-        print(f"  Test - Average Precision per class: {[f'{a:.4f}' for a in test_metrics['ap_per_class']]}")
-        print(f"  Test - mAP: {test_metrics['mAP_macro']:.4f}")
