@@ -12,6 +12,7 @@ def generate_data(
     images_out_dir: str,
     labels_out_dir: str,
     delete_old: bool = False,
+    useEveryNthFrame: int = 1,
     drop_empty_ratio: float = 0.0,   
     random_state: int = 42   
 ):
@@ -23,6 +24,7 @@ def generate_data(
         images_out_dir (str): Path where extracted images will be stored.
         labels_out_dir (str): Path where processed labels will be stored.
         delete_old (bool): If True, removes old images/labels first.
+        useEveryNthFrame: In [1 - 25]: Takes only the set frame since many frames are similar to each other to save space.
         drop_empty_ratio (float): In [0.0, 1.0]. Proportion of rows to DROP where all classes are 0.
                                   0.0 keeps all empty rows; 1.0 drops all empty rows.
         random_state (int|None): Random seed for reproducible sampling.
@@ -56,7 +58,7 @@ def generate_data(
         # check if there is no image with the prefix already
         if not glob.glob(str(images_out_dir / f"{Path(v).stem}_*.jpg")):
             if not v.endswith(".csv"):
-                process_vid(Path(v), images_out_dir)
+                process_vid(Path(v), images_out_dir, useEveryNthFrame)
 
     # process CSV labels
     label_paths = glob.glob(str(video_path) + "/*.csv")
@@ -67,7 +69,8 @@ def generate_data(
                 csv_path=Path(l),
                 labels_out_dir=labels_out_dir,
                 drop_empty_ratio=drop_empty_ratio,
-                random_state=random_state
+                random_state=random_state,
+                useEveryNthFrame=useEveryNthFrame
             )
 
 
@@ -75,7 +78,8 @@ def process_labels(
     csv_path: Path,
     labels_out_dir: Path,
     drop_empty_ratio: float = 0.0,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
+    useEveryNthFrame: int = 1
 ):
     """
     Append labels for a single CSV into labels.csv, optionally down-sampling rows
@@ -90,6 +94,8 @@ def process_labels(
     frame_col_name = "frame"
     # class columns = everything except 'frame' and 'timestamp' (case-insensitive)
     classes_cols = [c for c in df.columns if c.lower() not in {frame_col_name, "timestamp"}]
+
+    df = df[df[frame_col_name] % useEveryNthFrame == 0]
 
     # Build the output table: filename + class columns
     df_out = df[classes_cols].copy()
@@ -119,7 +125,7 @@ def process_labels(
     df_out.to_csv(output_file, mode="a", header=not output_file.exists(), index=False)
 
 
-def process_vid(vid_path: Path, images_out_dir: Path):
+def process_vid(vid_path: Path, images_out_dir: Path, useEveryNthFrame: int):
     vid_prefix = vid_path.stem
     print(f"Processing video: {vid_path.name}")
 
@@ -132,8 +138,13 @@ def process_vid(vid_path: Path, images_out_dir: Path):
         ok, frame = cap.read()
         if not ok:
             break
-        cv2.imwrite(str(images_out_dir / f"{vid_prefix}_{frame_idx}.jpg"), frame)
+        if frame_idx % useEveryNthFrame == 0:
+            out_path = images_out_dir / f"{vid_prefix}_{frame_idx}.jpg"
+            cv2.imwrite(str(out_path), frame)
         frame_idx += 1
+
+    cap.release()
+
 
 
 if __name__ == "__main__":
@@ -141,8 +152,9 @@ if __name__ == "__main__":
         video_dir="data/raw",
         images_out_dir="data/images",
         labels_out_dir="data/labels",
-        delete_old=False,
-        drop_empty_ratio=0.5,
+        delete_old=True,
+        useEveryNthFrame = 5,
+        drop_empty_ratio=0,
         random_state=42
     )
 

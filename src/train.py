@@ -69,15 +69,19 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     split_tag = "episodes"
 
     # Naming
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%m-%d_%H-%M")
+    test_eps = "-".join(config_dict["episodes"]["test"]) if config_dict["episodes"]["test"] else "noTest"
+
     experiment_name = (
-        f"{model.model_name}_unfreeze{config_dict['unfreeze_encoder_layers']}_"
-        f"{split_tag}_e{config_dict['num_epochs']}_bs{config_dict['batch_size']}_"
-        f"lr{config_dict['learning_rate']}_wd{config_dict['weight_decay']}_"
-        f"th{config_dict['output_threshold']}_mw{config_dict['max_weight']}_"
-        f"sch{config_dict['scheduler']}-ss{config_dict['step_size']}-g{config_dict['gamma']}_"
-        f"{timestamp}"
+        f"{model.model_name}"
+        f"_tes{test_eps}"
+        f"_uf{config_dict['unfreeze_encoder_layers']}"
+        f"_e{config_dict['num_epochs']}"
+        f"_bs{config_dict['batch_size']}"
+        f"_lr{config_dict['learning_rate']}"
+        f"_{timestamp}"
     )
+
     model_name = f"{experiment_name}.pth"
 
     # Loss & optimizer
@@ -106,8 +110,11 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         config={
             "group": experiment_group,
             "model": model.model_name,
+            "class_names": class_names,
+            "episodes_train": config_dict["episodes"]["train"],
+            "episodes_test": config_dict["episodes"]["test"],
+            "episodes_val": config_dict["episodes"]["val"],
             "unfreeze_encoder_layers": config_dict["unfreeze_encoder_layers"],
-            "episodes": config_dict["episodes"],
             "epochs": config_dict["num_epochs"],
             "batch_size": config_dict["batch_size"],
             "loss_fn": loss_fn.__class__.__name__,
@@ -115,14 +122,11 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             "learning_rate": config_dict["learning_rate"],
             "weight_decay": config_dict["weight_decay"],
             "output_threshold": config_dict["output_threshold"],
-            "max_weight": config_dict["max_weight"],
             "scheduler": config_dict["scheduler"],
             "step_size": config_dict["step_size"],
             "gamma": config_dict["gamma"],
             "device": str(device),
             "num_classes": out_features,
-            "class_names": class_names,
-            "experiment_group": experiment_group,  # for filtering in W&B
         },
     )
 
@@ -144,6 +148,20 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         )
         print(f"[INFO] Training completed in {timer() - start:.3f}s")
         utils.save_model(model.model, target_dir="models", model_name=model_name)
+
+        experiment_name = (
+        f"{experiment_group}"
+        f"_{model.model_name}")
+
+        artifact = wandb.Artifact(
+            name=experiment_name,
+            type="model",
+            description=f"Model trained with config {config_dict}",
+            metadata=config_dict
+        )
+        artifact.add_file(local_path=model_path, name="model")
+        wandb.log_artifact(artifact)
+
     except Exception as e:
         print(f"[ERROR] Experiment {experiment_name} failed: {str(e)}")
     finally:

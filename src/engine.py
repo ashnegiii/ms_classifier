@@ -1,9 +1,6 @@
 from typing import Dict, List, Optional
-
-import numpy as np
 import torch
 from tqdm.auto import tqdm
-
 import wandb
 from utils import calc_metrics
 
@@ -76,12 +73,12 @@ def train(model: torch.nn.Module,
           threshold: float = 0.5,
           scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None):
 
-    # Tracking
-    epoch_idx = [0]  # start baseline
+    # --- Tracking lists with baselines ---
+    epoch_idx = [0]
     loss_train = [1.0]
     loss_val, loss_test = [1.0], [1.0]
-    precision_data = {name: [0.0] for name in class_names}
-    recall_data = {name: [0.0] for name in class_names}
+    precision_data = {n: [0.0] for n in class_names}
+    recall_data = {n: [0.0] for n in class_names}
 
     for epoch in tqdm(range(epochs)):
         # --- Train ---
@@ -100,11 +97,11 @@ def train(model: torch.nn.Module,
             test_out = run_epoch(model, test_dataloader, loss_fn, device)
             test_metrics = evaluate_metrics(test_out["logits"], test_out["targets"], class_names, threshold)
 
-        # Scheduler step
+        # --- Scheduler ---
         if scheduler:
             scheduler.step()
 
-        # --- Store ---
+        # --- Append metrics ---
         epoch_idx.append(epoch + 1)
         loss_train.append(train_out["loss"])
         if val_out is not None:
@@ -117,7 +114,7 @@ def train(model: torch.nn.Module,
                 precision_data[cname].append(test_metrics["per_class"][cname]["precision"])
                 recall_data[cname].append(test_metrics["per_class"][cname]["recall"])
 
-        # --- Console print aligned ---
+        # --- Console output ---
         print(f"\nEpoch {epoch+1}/{epochs}")
         print(f"  Train - Loss: {train_out['loss']:.4f}")
         if val_out is not None:
@@ -143,12 +140,35 @@ def train(model: torch.nn.Module,
             log_dict["loss_test"] = test_out["loss"]
             log_dict["mAP"] = test_metrics["macro"]["mAP"]
 
+        # Scalars for sorting
         if test_metrics is not None:
             for cname in class_names:
                 for metric, val in test_metrics["per_class"][cname].items():
                     log_dict[f"{metric}_{cname}"] = val
 
-        # Confusion matrix logging
+        # --- Curves (loss + precision/recall) ---
+        ys, keys = [loss_train], ["train"]
+        if len(loss_val) > 1:
+            ys.append(loss_val); keys.append("val")
+        if len(loss_test) > 1:
+            ys.append(loss_test); keys.append("test")
+
+        log_dict["loss_plot"] = wandb.plot.line_series(
+            xs=epoch_idx, ys=ys, keys=keys,
+            title="Loss per Epoch", xname="Epoch"
+        )
+
+        if test_metrics is not None:
+            for cname in class_names:
+                log_dict[f"precision_recall_{cname}"] = wandb.plot.line_series(
+                    xs=epoch_idx,
+                    ys=[precision_data[cname], recall_data[cname]],
+                    keys=["precision", "recall"],
+                    title=f"Precision & Recall - {cname}",
+                    xname="Epoch"
+                )
+
+        # --- Confusion matrices ---
         if test_out is not None:
             preds_bin = (test_out["logits"].sigmoid() > threshold).cpu().numpy()
             y_true_bin = test_out["targets"].cpu().numpy()

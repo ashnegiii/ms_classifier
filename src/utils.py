@@ -347,66 +347,6 @@ def load_vit_model(model_path: str, num_classes: int, device: torch.device):
     
     return model.to(device).eval()
 
-def pred_and_plot_image_multilabel(
-    model: torch.nn.Module,
-    image_paths: List[Union[str, Path]],
-    class_names: List[str],
-    grid: Tuple[int, int] = (2, 3),
-    image_size: Tuple[int, int] = (224, 224),
-    transform: Optional[transforms.Compose] = None,
-    device: torch.device = torch.device("cpu"),
-    thresh: float = 0.5,
-    suptitle: Optional[str] = "Model Predictions"
-):
-    model = model.to(device).eval()
-    image_paths = [Path(p) for p in image_paths]
-    rows, cols = grid
-    max_slots = rows * cols
-    paths = image_paths[:max_slots]
-
-    PRINT_EPS = 5e-4
-    # ✅ Use caller-provided transform, else safe default with ImageNet normalization
-    tfm = transform
-    imgs_pil = [Image.open(p).convert("RGB") for p in paths]
-    tensors = [tfm(im) for im in imgs_pil]
-    batch = torch.stack(tensors, dim=0).to(device)
-
-    with torch.inference_mode():
-        logits = model(batch)
-        probs = torch.sigmoid(logits).cpu()
-
-    pred_idx_lists = [(p >= thresh).nonzero(as_tuple=True)[0].tolist() for p in probs]
-    pred_name_lists = [[class_names[i] for i in idxs] for idxs in pred_idx_lists]
-
-    fig, axes = plt.subplots(rows, cols, figsize=(4*cols, 3.5*rows))
-    axes = axes.flatten() if hasattr(axes, "flatten") else [axes]
-
-    for ax_i in range(max_slots):
-        ax = axes[ax_i]
-        if ax_i < len(paths):
-            im = imgs_pil[ax_i]
-            names = pred_name_lists[ax_i]
-            pr = probs[ax_i]
-            shown = [
-                f"{cls} ({pr[class_names.index(cls)]:.2f})"
-                for cls in names
-                if round(pr[class_names.index(cls)].item(), 2) != 0.0
-            ] if names else []
-            title = ", ".join(shown) if shown else f"none ≥ {thresh:.2f}"
-
-            ax.imshow(im)
-            ax.set_title(title, fontsize=10)
-            ax.axis("off")
-        else:
-            ax.axis("off")
-
-    if suptitle:
-        plt.suptitle(suptitle, fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-    return [(p, pred_name_lists[i], probs[i]) for i, p in enumerate(paths)]
-
 
 
 def get_class_names(csv_path: str):
