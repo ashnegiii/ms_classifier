@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision import transforms
 
 from backbone.effnet_b2 import EfficientNetB2
-from experiment_config import ExperimentConfig
+from exp_config import ExperimentConfig
 from gradcam import GradCAM
 from utils import load_backbone
 

@@ -2,6 +2,7 @@ from typing import Dict, List, Optional
 import torch
 from tqdm.auto import tqdm
 import wandb
+from early_stopping import EarlyStopping
 from utils import calc_metrics
 
 
@@ -19,7 +20,8 @@ def run_epoch(model: torch.nn.Module,
 
     context = torch.enable_grad() if is_train else torch.inference_mode()
     with context:
-        pbar = tqdm(dataloader, desc="Train" if is_train else "Eval", leave=False)
+        pbar = tqdm(
+            dataloader, desc="Train" if is_train else "Eval", leave=False)
         for X, y in pbar:
             X, y = X.to(device), y.to(device).float()
 
@@ -71,7 +73,11 @@ def train(model: torch.nn.Module,
           class_names: List[str],
           device: torch.device,
           threshold: float = 0.5,
+          early_stopping_patience=3,
           scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None):
+
+    early_stopper = EarlyStopping(
+        patience=early_stopping_patience, metric="mAP")
 
     # --- Tracking lists with baselines ---
     epoch_idx = [0]
@@ -82,20 +88,24 @@ def train(model: torch.nn.Module,
 
     for epoch in tqdm(range(epochs)):
         # --- Train ---
-        train_out = run_epoch(model, train_dataloader, loss_fn, device, optimizer)
-        train_metrics = evaluate_metrics(train_out["logits"], train_out["targets"], class_names, threshold)
+        train_out = run_epoch(model, train_dataloader,
+                              loss_fn, device, optimizer)
+        train_metrics = evaluate_metrics(
+            train_out["logits"], train_out["targets"], class_names, threshold)
 
         # --- Validation (optional) ---
         val_out, val_metrics = None, None
         if val_dataloader is not None and len(val_dataloader) > 0:
             val_out = run_epoch(model, val_dataloader, loss_fn, device)
-            val_metrics = evaluate_metrics(val_out["logits"], val_out["targets"], class_names, threshold)
+            val_metrics = evaluate_metrics(
+                val_out["logits"], val_out["targets"], class_names, threshold)
 
         # --- Test (optional) ---
         test_out, test_metrics = None, None
         if test_dataloader is not None and len(test_dataloader) > 0:
             test_out = run_epoch(model, test_dataloader, loss_fn, device)
-            test_metrics = evaluate_metrics(test_out["logits"], test_out["targets"], class_names, threshold)
+            test_metrics = evaluate_metrics(
+                test_out["logits"], test_out["targets"], class_names, threshold)
 
         # --- Scheduler ---
         if scheduler:
@@ -111,8 +121,10 @@ def train(model: torch.nn.Module,
 
         if test_metrics is not None:
             for cname in class_names:
-                precision_data[cname].append(test_metrics["per_class"][cname]["precision"])
-                recall_data[cname].append(test_metrics["per_class"][cname]["recall"])
+                precision_data[cname].append(
+                    test_metrics["per_class"][cname]["precision"])
+                recall_data[cname].append(
+                    test_metrics["per_class"][cname]["recall"])
 
         # --- Console output ---
         print(f"\nEpoch {epoch+1}/{epochs}")
@@ -123,7 +135,8 @@ def train(model: torch.nn.Module,
             print(f"  Test  - Loss: {test_out['loss']:.4f}")
             print(f"  Test  - mAP:  {test_metrics['macro']['mAP']:.4f}")
             print("  Per-class metrics:")
-            print(f"{'Class':15} {'Acc':>8} {'Prec':>8} {'Rec':>8} {'F1':>8} {'AP':>8}")
+            print(
+                f"{'Class':15} {'Acc':>8} {'Prec':>8} {'Rec':>8} {'F1':>8} {'AP':>8}")
             for cname in class_names:
                 m = test_metrics["per_class"][cname]
                 print(f"{cname:15} {m['accuracy']:8.4f} {m['precision']:8.4f} "
@@ -149,9 +162,11 @@ def train(model: torch.nn.Module,
         # --- Curves (loss + precision/recall) ---
         ys, keys = [loss_train], ["train"]
         if len(loss_val) > 1:
-            ys.append(loss_val); keys.append("val")
+            ys.append(loss_val)
+            keys.append("val")
         if len(loss_test) > 1:
-            ys.append(loss_test); keys.append("test")
+            ys.append(loss_test)
+            keys.append("test")
 
         log_dict["loss_plot"] = wandb.plot.line_series(
             xs=epoch_idx, ys=ys, keys=keys,
@@ -170,7 +185,8 @@ def train(model: torch.nn.Module,
 
         # --- Confusion matrices ---
         if test_out is not None:
-            preds_bin = (test_out["logits"].sigmoid() > threshold).cpu().numpy()
+            preds_bin = (test_out["logits"].sigmoid()
+                         > threshold).cpu().numpy()
             y_true_bin = test_out["targets"].cpu().numpy()
             for i, cname in enumerate(class_names):
                 log_dict[f"conf_matrix_{cname}"] = wandb.plot.confusion_matrix(
@@ -180,3 +196,7 @@ def train(model: torch.nn.Module,
                 )
 
         wandb.log(log_dict, step=epoch + 1)
+
+        if val_metrics and early_stopper(epoch=1, val_metrics=val_metrics["macro"]):
+            print(f"\n[INFO] Early stoping triggered at epoch {epoch+1}")
+            break

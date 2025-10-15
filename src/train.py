@@ -7,6 +7,7 @@ from timeit import default_timer as timer
 
 import torch
 
+from backbone.clip_vit_b16 import CLIPViTB16
 import engine
 import utils
 import wandb
@@ -15,7 +16,7 @@ from backbone.effnet_b0 import EfficientNetB0
 from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
 from data_setup import create_dataloaders
-from experiment_config import ExperimentConfig
+from exp_config import ExperimentConfig
 from utils import get_class_names
 
 # Config
@@ -25,28 +26,30 @@ labels_dir = Path("data/labels/labels.csv")
 
 
 def generate_experiment_group_id():
-    random_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+    random_id = "".join(random.choices(
+        string.ascii_lowercase + string.digits, k=4))
     return f"exp-{random_id}"
 
 
 def create_model(model_name, out_features, unfreeze_encoder_layers, device):
-    if model_name == "effnetb0":
-        return EfficientNetB0(out_features=out_features, device=device, unfreeze_last_n=unfreeze_encoder_layers)
-    elif model_name == "vitb16":
-        return ViTB16(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
-    elif model_name == "effnetb2":
+
+    if model_name == "effnetb2":
         return EfficientNetB2(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "convnext_tiny":
         return ConvNeXtTiny(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+    elif model_name == "vitb16":
+        return ViTB16(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+    elif model_name == "clip_vitb16":
+        return CLIPViTB16(device=device, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
 
 def run_single_experiment(config_dict, experiment_id, total_experiments, experiment_group):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.manual_seed(ExperimentConfig.RANDOM_SEED)
+    torch.manual_seed(config_dict["random_seed"])
     if device.type == "cuda":
-        torch.cuda.manual_seed(ExperimentConfig.RANDOM_SEED)
+        torch.cuda.manual_seed(config_dict["random_seed"])
 
     print(f"\n{'='*60}")
     print(f"EXPERIMENT {experiment_id}/{total_experiments}")
@@ -54,10 +57,12 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     print(f"{'='*60}")
 
     out_features = len(get_class_names(csv_path=labels_dir))
-    model = create_model(config_dict["model_name"], out_features, config_dict["unfreeze_encoder_layers"], device)
+    model = create_model(config_dict["model_name"], out_features,
+                         config_dict["unfreeze_encoder_layers"], device)
 
     # Always episode mode
     train_dl, val_dl, test_dl, class_names = create_dataloaders(
+        random_seed=config_dict["random_seed"],
         images_dir=images_dir,
         train_transform=model.train_transform,
         test_transform=model.test_transform,
@@ -66,11 +71,11 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         device=device,
         episode_splits=config_dict["episodes"],
     )
-    split_tag = "episodes"
 
     # Naming
     timestamp = datetime.now().strftime("%m-%d_%H-%M")
-    test_eps = "-".join(config_dict["episodes"]["test"]) if config_dict["episodes"]["test"] else "noTest"
+    test_eps = "-".join(config_dict["episodes"]["test"]
+                        ) if config_dict["episodes"]["test"] else "noTest"
 
     experiment_name = (
         f"{model.model_name}"
@@ -108,6 +113,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         job_type="hyperparameter_sweep",
         name=experiment_name,
         config={
+            "tag": config_dict["tag"],
             "group": experiment_group,
             "model": model.model_name,
             "class_names": class_names,
@@ -141,17 +147,19 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             loss_fn=loss_fn,
             optimizer=optimizer,
             epochs=config_dict["num_epochs"],
-            threshold=config_dict["output_threshold"],
             class_names=class_names,
             device=device,
+            threshold=config_dict["output_threshold"],
+            early_stopping_patience=3,
             scheduler=scheduler
         )
         print(f"[INFO] Training completed in {timer() - start:.3f}s")
-        utils.save_model(model.model, target_dir="models", model_name=model_name)
+        model_path = utils.save_model(
+            model.model, target_dir="models", model_name=model_name)
 
         experiment_name = (
-        f"{experiment_group}"
-        f"_{model.model_name}")
+            f"{experiment_group}"
+            f"_{model.model_name}")
 
         artifact = wandb.Artifact(
             name=experiment_name,
@@ -177,7 +185,9 @@ def main():
 
     experiment_combinations = list(
         itertools.product(
-            ExperimentConfig.model_name,
+            ExperimentConfig.RANDOM_SEED,
+            ExperimentConfig.TAG,
+            ExperimentConfig.MODEL_NAME,
             ExperimentConfig.UNFREEZE_ENCODER_LAYERS,
             ExperimentConfig.NUM_EPOCHS,
             ExperimentConfig.BATCH_SIZE,
@@ -197,6 +207,8 @@ def main():
     overall_start = timer()
     for i, combo in enumerate(experiment_combinations, start=1):
         (
+            random_seed,
+            tag,
             model_name,
             unfreeze_layers,
             num_epochs,
@@ -212,6 +224,8 @@ def main():
         ) = combo
 
         config_dict = {
+            "random_seed": random_seed,
+            "tag": tag,
             "model_name": model_name,
             "unfreeze_encoder_layers": unfreeze_layers,
             "num_epochs": num_epochs,
@@ -226,7 +240,8 @@ def main():
             "gamma": gamma,
         }
 
-        run_single_experiment(config_dict, i, total_experiments, experiment_group)
+        run_single_experiment(
+            config_dict, i, total_experiments, experiment_group)
 
     print(f"\n{'='*60}\nEXPERIMENT SUMMARY\n{'='*60}")
     print(f"Total experiments: {total_experiments}")

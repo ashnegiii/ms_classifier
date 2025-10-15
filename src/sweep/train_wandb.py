@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-import engine_update
+import wandb_variant.engine_update as engine_update
 import wandb
 # custom classes
 from backbone.effnet_b0 import EfficientNetB0
@@ -166,6 +166,7 @@ def main():
     # 4) Dataloaders (episode vs fraction)
     split = EPISODE_SPLITS[cfg.episode_index]
     train_loader, val_loader, test_loader, class_names = create_dataloaders(
+        random_seed=42,
         images_dir=IMAGES_DIR,
         train_transform=train_transform,
         test_transform=test_transform,

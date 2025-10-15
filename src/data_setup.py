@@ -8,11 +8,12 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from dataset import MultiLabelImageDataset
-from experiment_config import ExperimentConfig
+from exp_config import ExperimentConfig
 from utils import analyze_class_distribution_from_df
 
 
 def create_dataloaders(
+    random_seed: int,
     images_dir: str,
     train_transform: transforms.Compose,
     test_transform: transforms.Compose,
@@ -40,7 +41,7 @@ def create_dataloaders(
         train_df, temp_df = train_test_split(
             df,
             train_size=train_split,
-            random_state=ExperimentConfig.RANDOM_SEED,
+            random_state=random_seed,
             shuffle=True,
         )
         if val_split == 0.0:

@@ -1,6 +1,5 @@
 class ExperimentConfig:
     
-    RANDOM_SEED = 42
 
     EPISODE_SPLITS = [
         {
@@ -45,21 +44,21 @@ class ExperimentConfig:
         }
     ]
 
-    UNFREEZE_ENCODER_LAYERS = [2, 3]
-    NUM_EPOCHS = [2]
+    
+    RANDOM_SEED = [42, 7, 2021]
+    
+    # RQ1: How does the backbone architecture affect performance?
+    TAG = "RQ1"
+    MODEL_NAME = ["effnetb2", "convnext_tiny", "clip_vitb16"]
+    UNFREEZE_ENCODER_LAYERS = [2]
+    NUM_EPOCHS = [10]
     BATCH_SIZE = [32]
     LEARNING_RATE = [0.0001]
     WEIGHT_DECAY = [0.001]
-
-    OUTPUT_THRESHOLD = [0.3]
+    OUTPUT_THRESHOLD = [0.5]
     MAX_WEIGHT = [3]
-
-    # Scheduler config
     SCHEDULER = ["CosineAnnealingLR"] #StepLR or CosineAnnealingLR
 
     # scheduler params
     STEP_SIZE = [1]
     GAMMA = [0.5]
-
-    # the model's name: choose between 'vitb16', 'effnetb0', 'effnetb2', 'convnext_tiny'
-    model_name = ["effnetb2", "convnext_tiny"]

@@ -5,7 +5,7 @@ import torch
 import torchvision.models as models
 from data_setup import create_dataloaders
 from engine import test_step
-from experiment_config import ExperimentConfig
+from exp_config import ExperimentConfig
 from train import NUM_WORKERS
 from utils import load_model, load_vit_model, pred_and_plot_image_multilabel
 import random
@@ -25,6 +25,7 @@ def main():
     
     # Get class names first
     _, _, test_dataloader, class_names = create_dataloaders(
+        random_seed=42,
         images_dir=Path("data/images"),
         train_split=0.8,
         test_split=0.2,
