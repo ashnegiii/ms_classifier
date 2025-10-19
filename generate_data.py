@@ -13,8 +13,8 @@ def generate_data(
     labels_out_dir: str,
     delete_old: bool = False,
     useEveryNthFrame: int = 1,
-    drop_empty_ratio: float = 0.0,   
-    random_state: int = 42   
+    drop_empty_ratio: float = 0.0,
+    random_state: int = 42
 ):
     """
     Extract frames and labels from a video folder.
@@ -35,7 +35,8 @@ def generate_data(
     video_path = Path(video_dir)
 
     if not video_path.exists():
-        raise RuntimeError(f"Video Path not found: {video_path}. Please provide a valid path.")
+        raise RuntimeError(
+            f"Video Path not found: {video_path}. Please provide a valid path.")
 
     images_out_dir = Path(images_out_dir)
     labels_out_dir = Path(labels_out_dir)
@@ -93,7 +94,8 @@ def process_labels(
 
     frame_col_name = "frame"
     # class columns = everything except 'frame' and 'timestamp' (case-insensitive)
-    classes_cols = [c for c in df.columns if c.lower() not in {frame_col_name, "timestamp"}]
+    classes_cols = [c for c in df.columns if c.lower() not in {
+        frame_col_name, "timestamp"}]
 
     df = df[df[frame_col_name] % useEveryNthFrame == 0]
 
@@ -116,13 +118,15 @@ def process_labels(
         if keep_frac <= 0.0:
             kept_empty = empty_rows.iloc[0:0]  # keep none
         else:
-            kept_empty = empty_rows.sample(frac=keep_frac, random_state=random_state) if len(empty_rows) > 0 else empty_rows
+            kept_empty = empty_rows.sample(frac=keep_frac, random_state=random_state) if len(
+                empty_rows) > 0 else empty_rows
 
         # Recombine, preserving original order by index
         df_out = pd.concat([pos_rows, kept_empty]).sort_index()
 
     # Append to labels.csv (write header only if file doesn't exist yet)
-    df_out.to_csv(output_file, mode="a", header=not output_file.exists(), index=False)
+    df_out.to_csv(output_file, mode="a",
+                  header=not output_file.exists(), index=False)
 
 
 def process_vid(vid_path: Path, images_out_dir: Path, useEveryNthFrame: int):
@@ -146,14 +150,13 @@ def process_vid(vid_path: Path, images_out_dir: Path, useEveryNthFrame: int):
     cap.release()
 
 
-
 if __name__ == "__main__":
     generate_data(
         video_dir="data/raw",
         images_out_dir="data/images",
         labels_out_dir="data/labels",
         delete_old=True,
-        useEveryNthFrame = 5,
+        useEveryNthFrame=25,
         drop_empty_ratio=0,
         random_state=42
     )

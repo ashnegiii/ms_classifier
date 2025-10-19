@@ -2,7 +2,7 @@ from typing import Dict
 
 
 class EarlyStopping:
-    def __init__(self, patience: int = 3, metric: str = "mAP"):
+    def __init__(self, patience: int = 2, metric: str = "mAP"):
         self.patience = patience
         self.metric = metric
         self.best_score = None

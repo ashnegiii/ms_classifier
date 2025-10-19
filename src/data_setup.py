@@ -56,7 +56,7 @@ def create_dataloaders(
             val_df, test_df = train_test_split(
                 temp_df,
                 test_size=test_fraction_within_temp,
-                random_state=ExperimentConfig.RANDOM_SEED,
+                random_state=random_seed,
                 shuffle=True,
             )
     else:
@@ -72,7 +72,7 @@ def create_dataloaders(
                 else:
                     flat.append(e)
             episodes = flat
-            
+
             # Strip extension if present
             base = df["filename"].str.replace(".jpg", "", regex=False)
             base = base.str.split("_").str[0]  # before first "_"
@@ -81,9 +81,9 @@ def create_dataloaders(
         train_df = filter_by_episode(df, episode_splits["train"])
         val_df = filter_by_episode(df, episode_splits["val"])
         test_df = filter_by_episode(df, episode_splits["test"])
-        
+
         # few shot learning
-        if not test_df.empty and False: # Currently disabled
+        if not test_df.empty and False:  # Currently disabled
             print("Applying few-shot sampling from test to training set.")
             fewshot_df, test_remaining_df = train_test_split(
                 test_df,
@@ -94,16 +94,18 @@ def create_dataloaders(
             # merge few-shot into training
             train_df = pd.concat([train_df, fewshot_df], ignore_index=True)
             test_df = test_remaining_df
-                
+
             analyze_class_distribution_from_df(df=train_df, label="TRAINING")
             if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
-                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
+                analyze_class_distribution_from_df(
+                    df=val_df, label="VALIDATION")
             analyze_class_distribution_from_df(df=test_df, label="TESTING")
         else:
             print("No few-shot sampling applied.")
             analyze_class_distribution_from_df(df=train_df, label="TRAINING")
             if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
-                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
+                analyze_class_distribution_from_df(
+                    df=val_df, label="VALIDATION")
             analyze_class_distribution_from_df(df=test_df, label="TESTING")
     # -------------------------
     # Create datasets
@@ -113,11 +115,12 @@ def create_dataloaders(
         df=train_df,
         transform=train_transform,
     )
-    
+
     val_data = None
     if len(val_df) > 0:
-      val_data = MultiLabelImageDataset(root=images_dir, df=val_df, transform=test_transform)
-    
+        val_data = MultiLabelImageDataset(
+            root=images_dir, df=val_df, transform=test_transform)
+
     test_data = MultiLabelImageDataset(
         root=images_dir,
         df=test_df,
@@ -133,16 +136,16 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=device.type == "cuda",
     )
-    
+
     val_dataloader = None
     if val_data is not None:
-      val_dataloader = DataLoader(
-          val_data,
-          batch_size=batch_size,
-          shuffle=False,
-          num_workers=num_workers,
-          pin_memory=(device.type == "cuda"),
-      )
+        val_dataloader = DataLoader(
+            val_data,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=(device.type == "cuda"),
+        )
 
     test_dataloader = DataLoader(
         test_data,

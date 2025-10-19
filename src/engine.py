@@ -197,6 +197,14 @@ def train(model: torch.nn.Module,
 
         wandb.log(log_dict, step=epoch + 1)
 
-        if val_metrics and early_stopper(epoch=1, val_metrics=val_metrics["macro"]):
-            print(f"\n[INFO] Early stoping triggered at epoch {epoch+1}")
-            break
+        metrics_for_early_stop = None
+        if val_metrics is not None:
+            metrics_for_early_stop = val_metrics
+        elif test_metrics is not None:
+            metrics_for_early_stop = test_metrics
+
+        if metrics_for_early_stop is not None:
+            if early_stopper(epoch=epoch+1, val_metrics=metrics_for_early_stop["macro"]):
+                print(
+                    f"\n[INFO] Early stopping triggered at epoch {epoch+1}. No improvement after {early_stopping_patience} epochs.")
+                break

@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 
 import torch
 
-from backbone.clip_vit_b16 import CLIPViTB16
+from backbone.resnet import ResNet50
 import engine
 import utils
 import wandb
@@ -15,6 +15,7 @@ from backbone.convnext_tiny import ConvNeXtTiny
 from backbone.effnet_b0 import EfficientNetB0
 from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
+from backbone.clip_vit_b16 import CLIPViTB16
 from data_setup import create_dataloaders
 from exp_config import ExperimentConfig
 from utils import get_class_names
@@ -32,7 +33,6 @@ def generate_experiment_group_id():
 
 
 def create_model(model_name, out_features, unfreeze_encoder_layers, device):
-
     if model_name == "effnetb2":
         return EfficientNetB2(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "convnext_tiny":
@@ -41,6 +41,8 @@ def create_model(model_name, out_features, unfreeze_encoder_layers, device):
         return ViTB16(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "clip_vitb16":
         return CLIPViTB16(device=device, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
+    elif model_name == "resnet50":
+        return ResNet50(device=device, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -91,11 +93,20 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
 
     # Loss & optimizer
     loss_fn = torch.nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(
-        model.model.parameters(),
-        lr=config_dict["learning_rate"],
-        weight_decay=config_dict["weight_decay"],
-    )
+    if config_dict["model_name"] == "clip_vitb16":
+        trainable_model = model
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=config_dict["learning_rate"],
+            weight_decay=config_dict["weight_decay"],
+        )
+    else:
+        trainable_model = model.model
+        optimizer = torch.optim.Adam(
+            model.model.parameters(),
+            lr=config_dict["learning_rate"],
+            weight_decay=config_dict["weight_decay"],
+        )
 
     # Scheduler
     scheduler = None
@@ -140,7 +151,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     start = timer()
     try:
         engine.train(
-            model=model.model,
+            model=trainable_model,
             train_dataloader=train_dl,
             val_dataloader=val_dl,
             test_dataloader=test_dl,
@@ -150,25 +161,25 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             class_names=class_names,
             device=device,
             threshold=config_dict["output_threshold"],
-            early_stopping_patience=3,
+            early_stopping_patience=2,
             scheduler=scheduler
         )
         print(f"[INFO] Training completed in {timer() - start:.3f}s")
         model_path = utils.save_model(
-            model.model, target_dir="models", model_name=model_name)
+            trainable_model, target_dir="models", model_name=model_name)
 
         experiment_name = (
             f"{experiment_group}"
-            f"_{model.model_name}")
+            f"_{trainable_model.model_name}")
 
-        artifact = wandb.Artifact(
-            name=experiment_name,
-            type="model",
-            description=f"Model trained with config {config_dict}",
-            metadata=config_dict
-        )
-        artifact.add_file(local_path=model_path, name="model")
-        wandb.log_artifact(artifact)
+        # artifact = wandb.Artifact(
+        #    name=experiment_name,
+        #    type="model",
+        #    description=f"Model trained with config {config_dict}",
+        #    metadata=config_dict
+        # )
+        # artifact.add_file(local_path=model_path, name="model")
+        # wandb.log_artifact(artifact)
 
     except Exception as e:
         print(f"[ERROR] Experiment {experiment_name} failed: {str(e)}")
