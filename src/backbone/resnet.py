@@ -6,12 +6,12 @@ from torchvision.transforms import InterpolationMode
 
 
 class ResNet50():
-    def __init__(self, device: torch.device, unfreeze_last_n: int = 0, out_features: int = 0):
+    def __init__(self, device: torch.device, pretrained: bool, unfreeze_last_n: int = 0, out_features: int = 0):
         super().__init__()
         self.out_features = out_features
         self.weights = torchvision.models.ResNet50_Weights.DEFAULT
         self.model = torchvision.models.resnet50(
-            weights=self.weights).to(device)
+            weights=self.weights if pretrained else None).to(device)
 
         # Freeze all layers initially
         for param in self.model.parameters():

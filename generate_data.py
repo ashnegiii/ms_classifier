@@ -156,7 +156,7 @@ if __name__ == "__main__":
         images_out_dir="data/images",
         labels_out_dir="data/labels",
         delete_old=True,
-        useEveryNthFrame=25,
+        useEveryNthFrame=5,
         drop_empty_ratio=0,
         random_state=42
     )

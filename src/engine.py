@@ -206,5 +206,5 @@ def train(model: torch.nn.Module,
         if metrics_for_early_stop is not None:
             if early_stopper(epoch=epoch+1, val_metrics=metrics_for_early_stop["macro"]):
                 print(
-                    f"\n[INFO] Early stopping triggered at epoch {epoch+1}. No improvement after {early_stopping_patience} epochs.")
+                    f"\n[INFO] Early stopping triggered at epoch {epoch+1}. No improvement seen for {early_stopping_patience} epochs.")
                 break

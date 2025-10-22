@@ -12,7 +12,6 @@ import engine
 import utils
 import wandb
 from backbone.convnext_tiny import ConvNeXtTiny
-from backbone.effnet_b0 import EfficientNetB0
 from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
 from backbone.clip_vit_b16 import CLIPViTB16
@@ -32,17 +31,17 @@ def generate_experiment_group_id():
     return f"exp-{random_id}"
 
 
-def create_model(model_name, out_features, unfreeze_encoder_layers, device):
+def create_model(model_name, out_features, pretrained, unfreeze_encoder_layers, device):
     if model_name == "effnetb2":
-        return EfficientNetB2(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return EfficientNetB2(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "convnext_tiny":
-        return ConvNeXtTiny(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return ConvNeXtTiny(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "vitb16":
-        return ViTB16(out_features=out_features, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return ViTB16(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "clip_vitb16":
-        return CLIPViTB16(device=device, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
+        return CLIPViTB16(device=device, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     elif model_name == "resnet50":
-        return ResNet50(device=device, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
+        return ResNet50(device=device, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -59,7 +58,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     print(f"{'='*60}")
 
     out_features = len(get_class_names(csv_path=labels_dir))
-    model = create_model(config_dict["model_name"], out_features,
+    model = create_model(config_dict["model_name"], out_features, config_dict["pretrained"],
                          config_dict["unfreeze_encoder_layers"], device)
 
     # Always episode mode
@@ -199,6 +198,7 @@ def main():
             ExperimentConfig.RANDOM_SEED,
             ExperimentConfig.TAG,
             ExperimentConfig.MODEL_NAME,
+            ExperimentConfig.PRETRAINED,
             ExperimentConfig.UNFREEZE_ENCODER_LAYERS,
             ExperimentConfig.NUM_EPOCHS,
             ExperimentConfig.BATCH_SIZE,
@@ -221,6 +221,7 @@ def main():
             random_seed,
             tag,
             model_name,
+            pretrained,
             unfreeze_layers,
             num_epochs,
             batch_size,
@@ -238,6 +239,7 @@ def main():
             "random_seed": random_seed,
             "tag": tag,
             "model_name": model_name,
+            "pretrained": pretrained,
             "unfreeze_encoder_layers": unfreeze_layers,
             "num_epochs": num_epochs,
             "batch_size": batch_size,

@@ -5,20 +5,9 @@ class ExperimentConfig:
             "train": ["02-01-01", "03-04-17", "02-04-04", "miss-piggy", "the-cook", "rowlf-the-dog", "fozzie-bear"],
             "test":  ["03-04-03"],
             "val":   []
-        }]
-    """
-        {
-            "train": ["02-01-01", "03-04-17", "02-04-04"],
-            "test":  ["03-04-03"],
-            "val":   []
         },
         {
             "train": ["03-04-17", "02-04-04", "03-04-03", "miss-piggy", "the-cook", "rowlf-the-dog", "fozzie-bear"],
-            "test":  ["02-01-01"],
-            "val":   []
-        },
-        {
-            "train": ["03-04-17", "02-04-04", "03-04-03"],
             "test":  ["02-01-01"],
             "val":   []
         },
@@ -28,13 +17,26 @@ class ExperimentConfig:
             "val":   []
         },
         {
-            "train": ["02-01-01", "02-04-04", "03-04-03"],
-            "test":  ["03-04-17"],
+            "train": ["02-01-01", "03-04-17", "03-04-03", "miss-piggy", "the-cook", "rowlf-the-dog", "fozzie-bear"],
+            "test":  ["02-04-04"],
+            "val":   []
+        },
+    ]
+    """
+        {
+            "train": ["02-01-01", "03-04-17", "02-04-04"],
+            "test":  ["03-04-03"],
+            "val":   []
+        },
+        
+        {
+            "train": ["03-04-17", "02-04-04", "03-04-03"],
+            "test":  ["02-01-01"],
             "val":   []
         },
         {
-            "train": ["02-01-01", "03-04-17", "03-04-03", "miss-piggy", "the-cook", "rowlf-the-dog", "fozzie-bear"],
-            "test":  ["02-04-04"],
+            "train": ["02-01-01", "02-04-04", "03-04-03"],
+            "test":  ["03-04-17"],
             "val":   []
         },
         {
@@ -49,6 +51,7 @@ class ExperimentConfig:
     # RQ1: How does the backbone architecture affect performance?
     TAG = ["RQ1"]
     MODEL_NAME = ["resnet50", "effnetb2", "convnext_tiny", "clip_vitb16"]
+    PRETRAINED = [False]
     UNFREEZE_ENCODER_LAYERS = [2]
     NUM_EPOCHS = [10]
     BATCH_SIZE = [32]
@@ -57,7 +60,7 @@ class ExperimentConfig:
     OUTPUT_THRESHOLD = [0.5]
     MAX_WEIGHT = [3]
     SCHEDULER = ["CosineAnnealingLR"]  # StepLR or CosineAnnealingLR
-
+    
     # scheduler params
     STEP_SIZE = [1]
     GAMMA = [0.5]

@@ -6,14 +6,14 @@ from torchvision.transforms import InterpolationMode
 
 
 class CLIPViTB16(nn.Module):  # Inherit from nn.Module
-    def __init__(self, device: torch.device, unfreeze_last_n: int = 0, out_features: int = 0):
+    def __init__(self, device: torch.device, pretrained: bool, unfreeze_last_n: int = 0, out_features: int = 0):
         super().__init__()
         self.model_name = "clip_vitb16"
         self.out_features = out_features
 
         # load pretrained CLIP (only visual backbone)
         model, _, preprocess = open_clip.create_model_and_transforms(
-            "ViT-B-16", pretrained="openai"
+            "ViT-B-16", pretrained="openai" if pretrained else None
         )
         self.visual = model.visual.to(device)
 
