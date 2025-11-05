@@ -49,8 +49,8 @@ class ExperimentConfig:
     RANDOM_SEED = [42, 7, 2021]
 
     # RQ1: How does the backbone architecture affect performance?
-    TAG = ["RQ1"]
-    MODEL_NAME = ["resnet50", "effnetb2", "convnext_tiny", "clip_vitb16"]
+    TAG = ["RQ2"]
+    MODEL_NAME = ["convnext_tiny"]
     PRETRAINED = [False]
     UNFREEZE_ENCODER_LAYERS = [2]
     NUM_EPOCHS = [10]
@@ -60,7 +60,7 @@ class ExperimentConfig:
     OUTPUT_THRESHOLD = [0.5]
     MAX_WEIGHT = [3]
     SCHEDULER = ["CosineAnnealingLR"]  # StepLR or CosineAnnealingLR
-    
+
     # scheduler params
     STEP_SIZE = [1]
     GAMMA = [0.5]
