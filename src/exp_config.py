@@ -51,18 +51,22 @@ class ExperimentConfig:
     # RQ1: How does the backbone architecture affect performance?
     TAG = ["RQ1"]
     MODEL_NAME = ["resnet50", "effnetb2", "convnext_tiny", "clip_vitb16"]
-    PRETRAINED = [True, False]
+    PRETRAINED = [True]
     AUGMENTATION = [False]
 
     UNFREEZE_ENCODER_LAYERS = [2]
-    NUM_EPOCHS = [10]
+    NUM_EPOCHS = [15]
+    
+    # cancel training when no improvement in n epochs
+    PATIENCE = [3]
+
     BATCH_SIZE = [32]
     LEARNING_RATE = [0.0001]
     WEIGHT_DECAY = [0.001]
     OUTPUT_THRESHOLD = [0.5]
     MAX_WEIGHT = [1]
-    SCHEDULER = ["CosineAnnealingLR"]  # StepLR or CosineAnnealingLR
-
-    # scheduler params
-    STEP_SIZE = [1]
-    GAMMA = [0.5]
+    
+    # StepLR or CosineAnnealingLR
+    SCHEDULER = ["None"]  
+    
+    

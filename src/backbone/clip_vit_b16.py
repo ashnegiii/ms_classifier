@@ -6,7 +6,7 @@ from torchvision.transforms import InterpolationMode
 
 
 class CLIPViTB16(nn.Module):  # Inherit from nn.Module
-    def __init__(self, device: torch.device, pretrained: bool, unfreeze_last_n: int = 0, out_features: int = 0):
+    def __init__(self, device: torch.device, pretrained: bool, augmentation: bool, unfreeze_last_n: int = 0, out_features: int = 0):
         super().__init__()
         self.model_name = "clip_vitb16"
         self.out_features = out_features
@@ -38,7 +38,28 @@ class CLIPViTB16(nn.Module):  # Inherit from nn.Module
         ).to(device)
 
         # use CLIP preprocessing for train/test
-        self.train_transform = preprocess
+
+        if augmentation:
+            self.train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ColorJitter(
+                    brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+                transforms.RandomRotation(15),
+                transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
+        else:
+            self.train_transform = transforms.Compose([
+                transforms.Resize(
+                    (224, 224), interpolation=InterpolationMode.BICUBIC),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
+
         self.test_transform = transforms.Compose([
             transforms.Resize(
                 (224, 224), interpolation=InterpolationMode.BICUBIC),

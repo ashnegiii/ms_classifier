@@ -6,7 +6,7 @@ from torchvision.transforms import InterpolationMode
 
 
 class ResNet50():
-    def __init__(self, device: torch.device, pretrained: bool, unfreeze_last_n: int = 0, out_features: int = 0):
+    def __init__(self, device: torch.device, pretrained: bool, augmentation: bool, unfreeze_last_n: int = 0, out_features: int = 0):
         super().__init__()
         self.out_features = out_features
         self.weights = torchvision.models.ResNet50_Weights.DEFAULT
@@ -33,24 +33,26 @@ class ResNet50():
                       out_features=self.out_features, bias=True).to(device)
         )
 
-        # Data augmentations (same as your effnetb2 setup)
-        self.train_transform = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), shear=10),
-            transforms.RandomPerspective(distortion_scale=0.3, p=0.3),
-            transforms.ColorJitter(
-                brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
-            transforms.RandomGrayscale(p=0.1),
-            transforms.RandomAutocontrast(p=0.2),
-            transforms.RandomAdjustSharpness(2, p=0.3),
-            transforms.GaussianBlur(3, sigma=(0.1, 2.0)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-            transforms.RandomErasing(p=0.5, scale=(0.02, 0.2)),
-        ])
+        if augmentation:
+            self.train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ColorJitter(
+                    brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+                transforms.RandomRotation(15),
+                transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
+        else:
+            self.train_transform = transforms.Compose([
+                transforms.Resize(
+                    (224, 224), interpolation=InterpolationMode.BICUBIC),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
 
         self.test_transform = transforms.Compose([
             transforms.Resize(224, interpolation=InterpolationMode.BICUBIC),

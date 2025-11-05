@@ -6,7 +6,7 @@ from torchvision.transforms import InterpolationMode
 
 
 class ConvNeXtTiny():
-    def __init__(self, device: torch.device, pretrained: bool, unfreeze_last_n: int = 0, out_features: int = 0):
+    def __init__(self, device: torch.device, pretrained: bool, augmentation: bool, unfreeze_last_n: int = 0, out_features: int = 0):
         super().__init__()
         self.out_features = out_features
         self.weights = models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1
@@ -31,18 +31,27 @@ class ConvNeXtTiny():
         self.model_name = "convnext_tiny"
         self.model = self.model.to(device)
 
-        self.train_transform = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(
-                brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
-            transforms.RandomRotation(15),
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
-                                 0.229, 0.224, 0.225]),
-        ])
-
+        if augmentation:
+            self.train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ColorJitter(
+                    brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+                transforms.RandomRotation(15),
+                transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
+        else:
+            self.train_transform = transforms.Compose([
+                transforms.Resize(
+                    (224, 224), interpolation=InterpolationMode.BICUBIC),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[
+                                     0.229, 0.224, 0.225]),
+            ])
+        
         self.test_transform = transforms.Compose([
             transforms.Resize(
                 (224, 224), interpolation=InterpolationMode.BICUBIC),

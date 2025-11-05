@@ -31,17 +31,17 @@ def generate_experiment_group_id():
     return f"exp-{random_id}"
 
 
-def create_model(model_name, out_features, pretrained, unfreeze_encoder_layers, device):
+def create_model(model_name, out_features, pretrained, augmentation, unfreeze_encoder_layers, device):
     if model_name == "effnetb2":
-        return EfficientNetB2(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return EfficientNetB2(out_features=out_features, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "convnext_tiny":
-        return ConvNeXtTiny(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return ConvNeXtTiny(out_features=out_features, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "vitb16":
-        return ViTB16(out_features=out_features, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, device=device)
+        return ViTB16(out_features=out_features, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "clip_vitb16":
-        return CLIPViTB16(device=device, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
+        return CLIPViTB16(device=device, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     elif model_name == "resnet50":
-        return ResNet50(device=device, pretrained=pretrained, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
+        return ResNet50(device=device, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, out_features=out_features)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -59,13 +59,12 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
 
     out_features = len(get_class_names(csv_path=labels_dir))
     model = create_model(config_dict["model_name"], out_features, config_dict["pretrained"],
-                         config_dict["unfreeze_encoder_layers"], device)
+                         config_dict["augmentation"], config_dict["unfreeze_encoder_layers"], device)
 
     # Always episode mode
     train_dl, val_dl, test_dl, class_names = create_dataloaders(
         random_seed=config_dict["random_seed"],
         images_dir=images_dir,
-        augmentation=config_dict["augmentation"],
         train_transform=model.train_transform,
         test_transform=model.test_transform,
         batch_size=config_dict["batch_size"],
@@ -110,10 +109,11 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
 
     # Scheduler
     scheduler = None
-    if config_dict["scheduler"] == "StepLR":
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=config_dict["step_size"], gamma=config_dict["gamma"]
-        )
+    if config_dict["scheduler"] == "CosineAnnealingLR":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=config_dict["num_epochs"]
+    )
     elif config_dict["scheduler"] == "None":
         scheduler = None
 
@@ -127,6 +127,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             "tag": config_dict["tag"],
             "group": experiment_group,
             "model": model.model_name,
+            "pretrained": config_dict["pretrained"],
             "class_names": class_names,
             "episodes_train": config_dict["episodes"]["train"],
             "episodes_test": config_dict["episodes"]["test"],
@@ -140,8 +141,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             "weight_decay": config_dict["weight_decay"],
             "output_threshold": config_dict["output_threshold"],
             "scheduler": config_dict["scheduler"],
-            "step_size": config_dict["step_size"],
-            "gamma": config_dict["gamma"],
+            "patience": config_dict["patience"],
             "device": str(device),
             "num_classes": out_features,
         },
@@ -161,7 +161,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             class_names=class_names,
             device=device,
             threshold=config_dict["output_threshold"],
-            early_stopping_patience=2,
+            early_stopping_patience=config_dict["patience"],
             scheduler=scheduler
         )
         print(f"[INFO] Training completed in {timer() - start:.3f}s")
@@ -203,6 +203,7 @@ def main():
             ExperimentConfig.AUGMENTATION,
             ExperimentConfig.UNFREEZE_ENCODER_LAYERS,
             ExperimentConfig.NUM_EPOCHS,
+            ExperimentConfig.PATIENCE,
             ExperimentConfig.BATCH_SIZE,
             ExperimentConfig.LEARNING_RATE,
             ExperimentConfig.WEIGHT_DECAY,
@@ -210,8 +211,6 @@ def main():
             ExperimentConfig.MAX_WEIGHT,
             ExperimentConfig.EPISODE_SPLITS,
             ExperimentConfig.SCHEDULER,
-            ExperimentConfig.STEP_SIZE,
-            ExperimentConfig.GAMMA,
         )
     )
     total_experiments = len(experiment_combinations)
@@ -227,15 +226,14 @@ def main():
             augmentation,
             unfreeze_layers,
             num_epochs,
+            patience,
             batch_size,
             learning_rate,
             weight_decay,
             output_threshold,
             max_weight,
             episodes,
-            scheduler_name,
-            step_size,
-            gamma,
+            scheduler,
         ) = combo
 
         config_dict = {
@@ -246,15 +244,14 @@ def main():
             "augmentation": augmentation,
             "unfreeze_encoder_layers": unfreeze_layers,
             "num_epochs": num_epochs,
+            "patience": patience,
             "batch_size": batch_size,
             "learning_rate": learning_rate,
             "weight_decay": weight_decay,
             "output_threshold": output_threshold,
             "max_weight": max_weight,
             "episodes": episodes,
-            "scheduler": scheduler_name,
-            "step_size": step_size,
-            "gamma": gamma,
+            "scheduler": scheduler,
         }
 
         run_single_experiment(
