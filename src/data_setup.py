@@ -15,6 +15,7 @@ from utils import analyze_class_distribution_from_df
 def create_dataloaders(
     random_seed: int,
     images_dir: str,
+    augmentation: bool,
     train_transform: transforms.Compose,
     test_transform: transforms.Compose,
     batch_size: int,
@@ -110,21 +111,24 @@ def create_dataloaders(
     # -------------------------
     # Create datasets
     # -------------------------
+
+    print(f"Augmentation: {train_transform if augmentation else 'None'}")
+
     train_data = MultiLabelImageDataset(
         root=images_dir,
         df=train_df,
-        transform=train_transform,
+        transform=train_transform if augmentation else None,
     )
 
     val_data = None
     if len(val_df) > 0:
         val_data = MultiLabelImageDataset(
-            root=images_dir, df=val_df, transform=test_transform)
+            root=images_dir, df=val_df, transform=test_transform if augmentation else None)
 
     test_data = MultiLabelImageDataset(
         root=images_dir,
         df=test_df,
-        transform=test_transform,
+        transform=test_transform if augmentation else None,
     )
 
     class_names = train_data.classes

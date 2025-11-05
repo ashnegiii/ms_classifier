@@ -23,23 +23,32 @@ LABELS_CSV = Path("data/labels/labels.csv")
 NUM_WORKERS = 2
 
 EPISODE_SPLITS = [
-    {"train": [["02-04-04","03-04-17","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["02-01-01"]], "val":[[]]},
-    {"train": [["02-01-01","03-04-17","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["02-04-04"]], "val":[[]]},
-    {"train": [["02-01-01","02-04-04","03-04-03","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["03-04-17"]], "val":[[]]},
-    {"train": [["02-01-01","02-04-04","03-04-17","cook-1","miss-piggy-1", "fozzie-bear"]], "test": [["03-04-03"]], "val":[[]]},
+    {"train": [["02-04-04", "03-04-17", "03-04-03", "cook-1",
+                "miss-piggy-1", "fozzie-bear"]], "test": [["02-01-01"]], "val": [[]]},
+    {"train": [["02-01-01", "03-04-17", "03-04-03", "cook-1",
+                "miss-piggy-1", "fozzie-bear"]], "test": [["02-04-04"]], "val": [[]]},
+    {"train": [["02-01-01", "02-04-04", "03-04-03", "cook-1",
+                "miss-piggy-1", "fozzie-bear"]], "test": [["03-04-17"]], "val": [[]]},
+    {"train": [["02-01-01", "02-04-04", "03-04-17", "cook-1",
+                "miss-piggy-1", "fozzie-bear"]], "test": [["03-04-03"]], "val": [[]]},
 ]
+
 
 def create_model(model_name: str, out_features: int, device: torch.device):
     if model_name in ["effnetb0", "effnetb2", "convnext_tiny"]:
         if model_name == "effnetb0":
-            wrapper = EfficientNetB0(device=device, unfreeze_last_n=0, out_features=out_features)
+            wrapper = EfficientNetB0(
+                device=device, unfreeze_last_n=0, out_features=out_features)
         elif model_name == "effnetb2":
-            wrapper = EfficientNetB2(device=device, unfreeze_last_n=0, out_features=out_features)
+            wrapper = EfficientNetB2(
+                device=device, unfreeze_last_n=0, out_features=out_features)
         elif model_name == "convnext_tiny":
-            wrapper = ConvNeXtTiny(device=device, unfreeze_last_n=0, out_features=out_features)
+            wrapper = ConvNeXtTiny(
+                device=device, unfreeze_last_n=0, out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     elif model_name == "vitb16":
-        wrapper = ViTB16(device=device, unfreeze_last_n=0, out_features=out_features)
+        wrapper = ViTB16(device=device, unfreeze_last_n=0,
+                         out_features=out_features)
         return wrapper.model, wrapper.train_transform, wrapper.test_transform
     else:
         raise ValueError(f"Unknown model: {model_name}")
@@ -80,8 +89,10 @@ def backbone_blocks_last_to_first(model: nn.Module, model_name: str):
     elif model_name == "vitb16":
         return list(model.encoder.layers)[::-1]
 
+
 def requires_grad_params(module: nn.Module) -> List[nn.Parameter]:
     return [p for p in module.parameters() if p.requires_grad]
+
 
 def build_param_groups_llrd(model: nn.Module,
                             model_name: str,
@@ -90,7 +101,8 @@ def build_param_groups_llrd(model: nn.Module,
                             llrd_gamma: float) -> List[Dict]:
     groups: List[Dict] = []
     # head
-    groups.append({"params": list(head_parameters(model, model_name)), "lr": lr_head})
+    groups.append(
+        {"params": list(head_parameters(model, model_name)), "lr": lr_head})
     # backbone blocks from last to first, LR decays as we go deeper
     blocks = backbone_blocks_last_to_first(model, model_name)
     lr = lr_backbone
@@ -118,15 +130,17 @@ def run_stage(model: nn.Module,
               threshold: float,
               do_eval: bool = True) -> None:
     """Build param groups for this stage and train using engine.train."""
-    
+
     if lr_backbone == 0.0:
         # head-only training
         params = list(head_parameters(model, model_name))
-        optimizer = torch.optim.AdamW([{"params": params, "lr": lr_head}], weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(
+            [{"params": params, "lr": lr_head}], weight_decay=weight_decay)
     else:
-        param_groups = build_param_groups_llrd(model, model_name, lr_head, lr_backbone, llrd_gamma)
+        param_groups = build_param_groups_llrd(
+            model, model_name, lr_head, lr_backbone, llrd_gamma)
         optimizer = torch.optim.AdamW(param_groups, weight_decay=weight_decay)
-    
+
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
     loss_fn = torch.nn.BCEWithLogitsLoss()
     wandb.log({f"stage_{stage_name}_start": 1}, commit=False)
@@ -141,7 +155,7 @@ def run_stage(model: nn.Module,
         threshold=threshold,
         class_names=class_names,
         device=device,
-        scheduler = scheduler
+        scheduler=scheduler
     )
     wandb.log({f"stage_{stage_name}_end": 1}, commit=True)
 
@@ -160,7 +174,8 @@ def main():
     out_features = len(get_class_names(csv_path=LABELS_CSV))
 
     # 3) Model
-    model, train_transform, test_transform = create_model(cfg.model_name, out_features, device)
+    model, train_transform, test_transform = create_model(
+        cfg.model_name, out_features, device)
     model_name_for_log = cfg.model_name
 
     # 4) Dataloaders (episode vs fraction)
@@ -168,6 +183,7 @@ def main():
     train_loader, val_loader, test_loader, class_names = create_dataloaders(
         random_seed=42,
         images_dir=IMAGES_DIR,
+        augmentation=True,
         train_transform=train_transform,
         test_transform=test_transform,
         batch_size=cfg.batch_size,
@@ -194,9 +210,8 @@ def main():
         class_names=class_names,
         device=device,
         threshold=float(cfg.threshold),
-        do_eval = False
+        do_eval=False
     )
-
 
     # Stage 2: finetune (unfreeze top-n, small LR with LLRD)
     # ensure clean state
@@ -218,7 +233,7 @@ def main():
         class_names=class_names,
         device=device,
         threshold=float(cfg.threshold),
-        do_eval = True
+        do_eval=True
     )
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -226,6 +241,7 @@ def main():
     save_model(model, target_dir="models", model_name=ckpt_name)
     wandb.save(os.path.join("models", ckpt_name))
     wandb.finish()
+
 
 DEFAULT_CONFIG = dict(
     project="muppet-show-classifier",
