@@ -198,6 +198,7 @@ def main():
         itertools.product(
             ExperimentConfig.RANDOM_SEED,
             ExperimentConfig.TAG,
+            ExperimentConfig.DESCRIPTION,
             ExperimentConfig.MODEL_NAME,
             ExperimentConfig.PRETRAINED,
             ExperimentConfig.AUGMENTATION,
@@ -221,6 +222,7 @@ def main():
         (
             random_seed,
             tag,
+            description
             model_name,
             pretrained,
             augmentation,
@@ -239,6 +241,7 @@ def main():
         config_dict = {
             "random_seed": random_seed,
             "tag": tag,
+            "description": description,
             "model_name": model_name,
             "pretrained": pretrained,
             "augmentation": augmentation,

@@ -48,10 +48,32 @@ class ExperimentConfig:
 
     RANDOM_SEED = [42, 7, 2021]
 
-    # RQ1: How does the backbone architecture affect performance?
-    TAG = ["RQ1"]
-    MODEL_NAME = ["resnet50", "effnetb2", "convnext_tiny", "clip_vitb16"]
-    PRETRAINED = [True]
+    # ---------- RQ1: How does the backbone architecture affect performance? ----------
+    # TAG = ["RQ1"]
+    # MODEL_NAME = ["resnet50", "effnetb2", "convnext_tiny", "clip_vitb16"]
+    # PRETRAINED = [True]
+    # AUGMENTATION = [False]
+
+    # UNFREEZE_ENCODER_LAYERS = [2]
+    # NUM_EPOCHS = [15]
+    
+    # cancel training when no improvement in n epochs
+    # PATIENCE = [3]
+
+    # BATCH_SIZE = [32]
+    # LEARNING_RATE = [0.0001]
+    # WEIGHT_DECAY = [0.001]
+    # OUTPUT_THRESHOLD = [0.5]
+    # MAX_WEIGHT = [1]
+    
+    # StepLR or CosineAnnealingLR
+    # SCHEDULER = ["None"]  
+    
+    # ---------- RQ2: Which combination of optimization strategies most effectively improves precision and recall across all classes? ----------
+    TAG = ["RQ2"]
+    DESCRIPTION = ["Baseline performance"]
+    MODEL_NAME = ["clip_vitb16"]
+    PRETRAINED = [False]
     AUGMENTATION = [False]
 
     UNFREEZE_ENCODER_LAYERS = [2]
@@ -68,5 +90,7 @@ class ExperimentConfig:
     
     # StepLR or CosineAnnealingLR
     SCHEDULER = ["None"]  
+
+
     
     
