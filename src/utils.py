@@ -298,7 +298,7 @@ def load_backbone(model_class, model_path: str, num_classes: int, device: torch.
         Instanziertes Backbone mit geladenen Gewichten (im eval-Modus)
     """
     # Backbone instanziieren
-    backbone = model_class(device=device, out_features=num_classes, pretrained=False,  augmentation=False, unfreeze_encoder_layers=2)
+    backbone = model_class(device=device, out_features=num_classes, pretrained=False,  augmentation=False, unfreeze_last_n=0)
 
     # State dict laden
     state_dict = torch.load(model_path, map_location=device)

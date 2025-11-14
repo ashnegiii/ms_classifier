@@ -7,13 +7,12 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-
 from src.backbone.effnet_b2 import EfficientNetB2
 from src.eval.gradcam import GradCAM
 from src.utils import load_backbone
 
 # --- CONFIG ---
-MODEL_PATH = "models/effnetb2_unfreeze2_episodes_e2_bs32_lr0.0001_wd0.001_th0.4_mw3_2025-09-14_05-16-45.pth"
+MODEL_PATH = "models/effnetb2_unfreeze3_episodes_e1_bs32_lr0.0001_wd0.001_th0.4_mw3_schStepLR-ss2-g0.5_2025-09-20_18-56-35.pth"
 IMAGE_DIR = Path("data/custom_images")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -73,7 +72,7 @@ def show_original_and_transformed(img_path, transform):
     ax[1].axis("off")
 
     plt.show()
-    return transformed.unsqueeze(0)  # add batch dim
+    return transformed.unsqueeze(0)
 
 
 def main():
