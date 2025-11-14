@@ -54,29 +54,6 @@ class ExperimentConfig:
             "val": [],
         },
     ]
-    """
-        {
-            "train": ["02-01-01", "03-04-17", "02-04-04"],
-            "test":  ["03-04-03"],
-            "val":   []
-        },
-        
-        {
-            "train": ["03-04-17", "02-04-04", "03-04-03"],
-            "test":  ["02-01-01"],
-            "val":   []
-        },
-        {
-            "train": ["02-01-01", "02-04-04", "03-04-03"],
-            "test":  ["03-04-17"],
-            "val":   []
-        },
-        {
-            "train": ["02-01-01", "03-04-17", "03-04-03"],
-            "test":  ["02-04-04"],
-            "val":   []
-        }
-        """
 
     RANDOM_SEED = [42, 7, 2021]
 
@@ -103,7 +80,7 @@ class ExperimentConfig:
 
     # ---------- RQ2: Which combination of optimization strategies most effectively improves precision and recall across all classes? ----------
     TAG = ["RQ2"]
-    DESCRIPTION = ["Baseline performance"]
+    DESCRIPTION = ["Baseline performance with no augmentation, no oversampling and no pos-weighting for rare classes."]
     MODEL_NAME = ["clip_vitb16"]
     PRETRAINED = [True]
     AUGMENTATION = [False]

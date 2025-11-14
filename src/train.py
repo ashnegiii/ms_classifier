@@ -232,7 +232,7 @@ def main():
         (
             random_seed,
             tag,
-            description
+            description,
             model_name,
             pretrained,
             augmentation,
