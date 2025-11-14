@@ -1,6 +1,7 @@
 """
 Contains functionality for creating PyTorch DataLoader's for image classification data.
 """
+
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
@@ -9,7 +10,8 @@ from torchvision import transforms
 
 from dataset import MultiLabelImageDataset
 from exp_config import ExperimentConfig
-from utils import analyze_class_distribution_from_df
+from utils import (analyze_class_distribution_from_df,
+                   create_weighted_sampler_from_csv)
 
 
 def create_dataloaders(
@@ -18,6 +20,8 @@ def create_dataloaders(
     train_transform: transforms.Compose,
     test_transform: transforms.Compose,
     batch_size: int,
+    oversampling: bool,
+    oversample_factor: int,
     num_workers: int,
     device: torch.device,
     train_split: float = 0.8,
@@ -60,6 +64,7 @@ def create_dataloaders(
                 shuffle=True,
             )
     else:
+
         def filter_by_episode(df, episodes):
             if not episodes:
                 return pd.DataFrame(columns=df.columns)
@@ -89,7 +94,7 @@ def create_dataloaders(
                 test_df,
                 test_size=0.95,
                 random_state=42,
-                stratify=test_df["label_col"] if "label_col" in test_df else None
+                stratify=test_df["label_col"] if "label_col" in test_df else None,
             )
             # merge few-shot into training
             train_df = pd.concat([train_df, fewshot_df], ignore_index=True)
@@ -97,15 +102,13 @@ def create_dataloaders(
 
             analyze_class_distribution_from_df(df=train_df, label="TRAINING")
             if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
-                analyze_class_distribution_from_df(
-                    df=val_df, label="VALIDATION")
+                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
             analyze_class_distribution_from_df(df=test_df, label="TESTING")
         else:
             # print("No few-shot sampling applied.")
             analyze_class_distribution_from_df(df=train_df, label="TRAINING")
             if val_split > 0.0 or (episode_splits and val_df.shape[0] > 0):
-                analyze_class_distribution_from_df(
-                    df=val_df, label="VALIDATION")
+                analyze_class_distribution_from_df(df=val_df, label="VALIDATION")
             analyze_class_distribution_from_df(df=test_df, label="TESTING")
     # -------------------------
     # Create datasets
@@ -120,7 +123,8 @@ def create_dataloaders(
     val_data = None
     if len(val_df) > 0:
         val_data = MultiLabelImageDataset(
-            root=images_dir, df=val_df, transform=test_transform)
+            root=images_dir, df=val_df, transform=test_transform
+        )
 
     test_data = MultiLabelImageDataset(
         root=images_dir,
@@ -130,13 +134,27 @@ def create_dataloaders(
 
     class_names = train_data.classes
 
-    train_dataloader = DataLoader(
-        train_data,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=device.type == "cuda",
-    )
+    if oversampling:
+        sampler = create_weighted_sampler_from_csv(
+            csv_path=str(csv_path), oversample_factor=oversample_factor
+        )
+        print(f"Length of train_sampler: {len(sampler)}")
+        train_dataloader = DataLoader(
+            train_data,
+            batch_size=batch_size,
+            sampler=sampler,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=device.type == "cuda",
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_data,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=device.type == "cuda",
+        )
 
     val_dataloader = None
     if val_data is not None:

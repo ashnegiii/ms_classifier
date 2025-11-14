@@ -68,6 +68,8 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         train_transform=model.train_transform,
         test_transform=model.test_transform,
         batch_size=config_dict["batch_size"],
+        oversampling=config_dict["oversampling"],
+        oversample_factor=config_dict["oversample_factor"],
         num_workers=NUM_WORKERS,
         device=device,
         episode_splits=config_dict["episodes"],
@@ -91,7 +93,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     model_name = f"{experiment_name}.pth"
 
     # Loss & optimizer
-    loss_fn = torch.nn.BCEWithLogitsLoss()
+    loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=None if config_dict["max_bce_weight"] == 1 else torch.tensor([config_dict["max_bce_weight"]], device=device)) 
     if config_dict["model_name"] == "clip_vitb16":
         trainable_model = model
         optimizer = torch.optim.Adam(
@@ -125,9 +127,12 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         name=experiment_name,
         config={
             "tag": config_dict["tag"],
+            "description": config_dict["description"],
             "group": experiment_group,
             "model": model.model_name,
             "pretrained": config_dict["pretrained"],
+            "augmentation": config_dict["augmentation"],
+            "augmentation_description": config_dict["augmentation_description"],
             "class_names": class_names,
             "episodes_train": config_dict["episodes"]["train"],
             "episodes_test": config_dict["episodes"]["test"],
@@ -140,6 +145,8 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
             "learning_rate": config_dict["learning_rate"],
             "weight_decay": config_dict["weight_decay"],
             "output_threshold": config_dict["output_threshold"],
+            "max_bce_weight": config_dict["max_bce_weight"],
+            "oversample_factor": config_dict["oversample_factor"],
             "scheduler": config_dict["scheduler"],
             "patience": config_dict["patience"],
             "device": str(device),
@@ -202,6 +209,9 @@ def main():
             ExperimentConfig.MODEL_NAME,
             ExperimentConfig.PRETRAINED,
             ExperimentConfig.AUGMENTATION,
+            ExperimentConfig.AUGMENTATION_DESCRIPTION,
+            ExperimentConfig.OVERSAMPLING,
+            ExperimentConfig.OVERSAMPLE_FACTOR,
             ExperimentConfig.UNFREEZE_ENCODER_LAYERS,
             ExperimentConfig.NUM_EPOCHS,
             ExperimentConfig.PATIENCE,
@@ -209,7 +219,7 @@ def main():
             ExperimentConfig.LEARNING_RATE,
             ExperimentConfig.WEIGHT_DECAY,
             ExperimentConfig.OUTPUT_THRESHOLD,
-            ExperimentConfig.MAX_WEIGHT,
+            ExperimentConfig.MAX_BCE_WEIGHT,
             ExperimentConfig.EPISODE_SPLITS,
             ExperimentConfig.SCHEDULER,
         )
@@ -226,6 +236,9 @@ def main():
             model_name,
             pretrained,
             augmentation,
+            augmentation_description,
+            oversampling,
+            oversample_factor,
             unfreeze_layers,
             num_epochs,
             patience,
@@ -233,7 +246,7 @@ def main():
             learning_rate,
             weight_decay,
             output_threshold,
-            max_weight,
+            max_bce_weight,
             episodes,
             scheduler,
         ) = combo
@@ -245,6 +258,9 @@ def main():
             "model_name": model_name,
             "pretrained": pretrained,
             "augmentation": augmentation,
+            "augmentation_description": augmentation_description if augmentation else "No augmentation applied.",
+            "oversampling": oversampling,
+            "oversample_factor": oversample_factor,
             "unfreeze_encoder_layers": unfreeze_layers,
             "num_epochs": num_epochs,
             "patience": patience,
@@ -252,7 +268,7 @@ def main():
             "learning_rate": learning_rate,
             "weight_decay": weight_decay,
             "output_threshold": output_threshold,
-            "max_weight": max_weight,
+            "max_bce_weight": max_bce_weight,
             "episodes": episodes,
             "scheduler": scheduler,
         }
