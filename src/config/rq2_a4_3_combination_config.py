@@ -1,4 +1,5 @@
 from config.base_config import BaseConfig
+
 class RQ2_Combo3Config(BaseConfig):
     TAG = ["RQ2"]
     DESCRIPTION = ["Combo 3: AUG=True, UF=2, oversampling=True, pos_weight=False"]
