@@ -8,6 +8,6 @@ class RQ2_OversamplingConfig(BaseConfig):
     UNFREEZE_ENCODER_LAYERS = [2]
 
     OVERSAMPLING = [False, True]
-    OVERSAMPLE_FACTOR = [1, 10]
+    OVERSAMPLE_FACTOR = [10]
 
     MAX_BCE_WEIGHT = [1]
