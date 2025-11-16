@@ -5,7 +5,7 @@ import torch
 import torchvision.models as models
 from data_setup import create_dataloaders
 from engine import test_step
-from exp_config import ExperimentConfig
+from config import BaseConfig as ExperimentConfig
 from train import NUM_WORKERS
 from utils import load_model, load_vit_model, pred_and_plot_image_multilabel
 import random

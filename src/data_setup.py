@@ -9,7 +9,6 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from dataset import MultiLabelImageDataset
-from exp_config import ExperimentConfig
 from utils import (analyze_class_distribution_from_df,
                    create_weighted_sampler_from_csv)
 
