@@ -170,3 +170,6 @@ base.exe.stackdump
 *.sh
 
 logs/
+
+package-lock.json
+*/tailwindcss
