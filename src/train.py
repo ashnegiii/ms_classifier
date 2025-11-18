@@ -16,7 +16,7 @@ from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
 from backbone.clip_vit_b16 import CLIPViTB16
 from data_setup import create_dataloaders
-from config.rq2_a3_1_oversampling_config import RQ2_OversamplingConfig as ExperimentConfig
+from config.rq2_a3_1_oversampling_config import RQ2_PosWeightConfig as ExperimentConfig
 from utils import get_class_names
 
 # Config

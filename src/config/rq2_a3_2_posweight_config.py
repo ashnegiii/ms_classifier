@@ -4,10 +4,10 @@ class RQ2_PosWeightConfig(BaseConfig):
     TAG = ["RQ2"]
     DESCRIPTION = ["Ablation C2: BCE pos_weight ON/OFF"]
 
-    AUGMENTATION = [True]
+    AUGMENTATION = [False]
     UNFREEZE_ENCODER_LAYERS = [2]
 
     OVERSAMPLING = [False]
     OVERSAMPLE_FACTOR = [1]
 
-    MAX_BCE_WEIGHT = [1, 3]
+    MAX_BCE_WEIGHT = [1, 5]
