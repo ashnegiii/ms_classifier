@@ -16,7 +16,7 @@ class RQ3_GeneralizationConfig(BaseConfig):
         },
     ]
     TAG = ["RQ3"]
-    DESCRIPTION = ["RQ3: Generalization to unseen episodes"]
+    DESCRIPTION = ["RQ3: Generalization to unseen episodes with best combo from RQ2"]
 
     AUGMENTATION = [True]
     UNFREEZE_ENCODER_LAYERS = [2]
@@ -24,4 +24,4 @@ class RQ3_GeneralizationConfig(BaseConfig):
     OVERSAMPLING = [True]
     OVERSAMPLE_FACTOR = [10]
 
-    MAX_BCE_WEIGHT = [3]
+    MAX_BCE_WEIGHT = [1]
