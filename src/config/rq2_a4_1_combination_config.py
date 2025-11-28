@@ -10,4 +10,4 @@ class RQ2_Combo1Config(BaseConfig):
     OVERSAMPLING = [False]
     OVERSAMPLE_FACTOR = [1]
 
-    MAX_BCE_WEIGHT = [3]
+    MAX_BCE_WEIGHT = [5]

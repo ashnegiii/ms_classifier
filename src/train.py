@@ -16,7 +16,7 @@ from backbone.effnet_b2 import EfficientNetB2
 from backbone.vit_b16 import ViTB16
 from backbone.clip_vit_b16 import CLIPViTB16
 from data_setup import create_dataloaders
-from config.rq2_a3_1_oversampling_config import RQ2_PosWeightConfig as ExperimentConfig
+from config.rq2_a3_1_oversampling_config import RQ2_OversamplingConfig as ExperimentConfig
 from utils import get_class_names
 
 # Config
@@ -26,12 +26,18 @@ labels_dir = Path("data/labels/labels.csv")
 
 
 def generate_experiment_group_id():
+    """
+    Generates a random experiment group ID.
+    """
     random_id = "".join(random.choices(
         string.ascii_lowercase + string.digits, k=4))
     return f"exp-{random_id}"
 
 
 def create_model(model_name, out_features, pretrained, augmentation, unfreeze_encoder_layers, device):
+    """
+    Creates and returns the specified model.
+    """
     if model_name == "effnetb2":
         return EfficientNetB2(out_features=out_features, pretrained=pretrained, augmentation=augmentation, unfreeze_last_n=unfreeze_encoder_layers, device=device)
     elif model_name == "convnext_tiny":
@@ -47,11 +53,15 @@ def create_model(model_name, out_features, pretrained, augmentation, unfreeze_en
 
 
 def run_single_experiment(config_dict, experiment_id, total_experiments, experiment_group):
+    """
+    Runs a single experiment with the given configuration.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(config_dict["random_seed"])
     if device.type == "cuda":
         torch.cuda.manual_seed(config_dict["random_seed"])
 
+    # Setup logging
     print(f"\n{'='*60}")
     print(f"EXPERIMENT {experiment_id}/{total_experiments}")
     print(f"Config: {config_dict}")
@@ -61,7 +71,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     model = create_model(config_dict["model_name"], out_features, config_dict["pretrained"],
                          config_dict["augmentation"], config_dict["unfreeze_encoder_layers"], device)
 
-    # Always episode mode
+    # create dataloaders
     train_dl, val_dl, test_dl, class_names = create_dataloaders(
         random_seed=config_dict["random_seed"],
         images_dir=images_dir,
@@ -75,7 +85,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
         episode_splits=config_dict["episodes"],
     )
 
-    # Naming
+    # Experiment naming
     timestamp = datetime.now().strftime("%m-%d_%H-%M")
     test_eps = "-".join(config_dict["episodes"]["test"]
                         ) if config_dict["episodes"]["test"] else "noTest"
@@ -92,22 +102,20 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
 
     model_name = f"{experiment_name}.pth"
 
-    # Loss & optimizer
+    # Loss
     loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=None if config_dict["max_bce_weight"] == 1 else torch.tensor([config_dict["max_bce_weight"]], device=device)) 
+
+    # Optimizer (clip_vitb16 has its own model wrapper)
     if config_dict["model_name"] == "clip_vitb16":
         trainable_model = model
-        optimizer = torch.optim.Adam(
-            model.parameters(),
-            lr=config_dict["learning_rate"],
-            weight_decay=config_dict["weight_decay"],
-        )
     else:
         trainable_model = model.model
-        optimizer = torch.optim.Adam(
-            model.model.parameters(),
-            lr=config_dict["learning_rate"],
-            weight_decay=config_dict["weight_decay"],
-        )
+    
+    optimizer = torch.optim.Adam(
+        trainable_model.parameters(),
+        lr=config_dict["learning_rate"],
+        weight_decay=config_dict["weight_decay"],
+    )
 
     # Scheduler
     scheduler = None
@@ -158,6 +166,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     print(f"[INFO] Starting experiment: {experiment_name}")
     start = timer()
     try:
+        # Train the model
         engine.train(
             model=trainable_model,
             train_dataloader=train_dl,
@@ -202,6 +211,7 @@ def main():
     experiment_group = generate_experiment_group_id()
     print(f"[INFO] Experiment group: {experiment_group}")
 
+    # Generate all experiment combinations
     experiment_combinations = list(
         itertools.product(
             ExperimentConfig.RANDOM_SEED,
@@ -274,6 +284,7 @@ def main():
             "scheduler": scheduler,
         }
 
+        # Run each experiment
         run_single_experiment(
             config_dict, i, total_experiments, experiment_group)
 

@@ -9,7 +9,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-
+"""
+MultiLabelImageDataset is a custom dataset class for multi-label image classification.
+"""
 class MultiLabelImageDataset(Dataset):
   def __init__(self,
                root: str,
@@ -25,16 +27,18 @@ class MultiLabelImageDataset(Dataset):
     return len(self.df)
 
   def get_labels(self):
+    """ Returns the list of class names."""
     return self.classes
 
   def __getitem__(self, index: int):
+    """ Returns the image and multi-hot label vector at the given index."""
     row = self.df.iloc[index]
     filename = row["filename"]
 
     # 1. Load image
     img = Image.open(self.image_dir / filename).convert("RGB")
 
-    # 2. Apply transform or default ToTensor
+    # 2. Apply transform if given or default ToTensor
     if self.transform:
         img = self.transform(img)
     else:

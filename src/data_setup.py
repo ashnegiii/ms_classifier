@@ -133,9 +133,9 @@ def create_dataloaders(
 
     class_names = train_data.classes
 
-    if oversampling:
+    if oversampling and oversample_factor > 1:
         sampler = create_weighted_sampler_from_csv(
-            csv_path=str(csv_path), oversample_factor=oversample_factor
+            df=train_df, oversample_factor=oversample_factor
         )
         print(f"Length of train_sampler: {len(sampler)}")
         train_dataloader = DataLoader(

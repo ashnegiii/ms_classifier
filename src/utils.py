@@ -16,67 +16,6 @@ from torch import nn
 from torch.utils.data import WeightedRandomSampler
 from torchvision import transforms
 
-
-def find_optimal_thresholds(
-    model: torch.nn.Module,
-    val_dataloader: torch.utils.data.DataLoader,
-    class_names: List[str],
-    device: torch.device,
-    threshold_range: np.ndarray = np.arange(0.1, 0.95, 0.05),
-    metric: str = 'f1'
-) -> Dict[str, float]:
-    model.eval()
-    
-    all_predictions = []
-    all_targets = []
-    
-    with torch.inference_mode():
-        pbar = tqdm(val_dataloader, desc="Validation", leave=False)
-        for X, y in pbar:
-            X = X.to(device)
-            y = y.to(device)
-            
-            logits = model(X)
-            probs = torch.sigmoid(logits)
-            
-            all_predictions.append(probs.cpu().numpy())
-            all_targets.append(y.cpu().numpy())
-    
-    all_predictions = np.concatenate(all_predictions, axis=0)
-    all_targets = np.concatenate(all_targets, axis=0)
-    
-    optimal_thresholds = {}
-    
-    for class_idx, class_name in enumerate(class_names):
-        y_true = all_targets[:, class_idx]
-        y_scores = all_predictions[:, class_idx]
-        
-        best_threshold = 0.5
-        best_metric_value = 0.0
-        
-        for threshold in threshold_range:
-            y_pred = (y_scores >= threshold).astype(int)
-            
-            # skip if all predictions are same
-            if len(np.unique(y_pred)) == 1: 
-                continue
-            
-            if metric == 'f1':
-                metric_value = f1_score(y_true, y_pred, zero_division=0)
-            elif metric == 'precision':
-                metric_value = precision_score(y_true, y_pred, zero_division=0)
-            elif metric == 'recall':
-                metric_value = recall_score(y_true, y_pred, zero_division=0)
-
-            if metric_value > best_metric_value:
-                best_metric_value = metric_value
-                best_threshold = threshold
-
-        optimal_thresholds[class_name] = best_threshold    
-    
-    return optimal_thresholds
-
-
 def calc_metrics(targets: torch.Tensor, 
                 logits: torch.Tensor, 
                 optimal_thresholds: Dict[str, float] = None, 
@@ -162,20 +101,10 @@ def analyze_class_distribution_from_df(df, label="CSV"):
     
     print("-" * 50)
     
-    # Sort by imbalance ratio to show most problematic classes
-    #class_stats.sort(key=lambda x: x['imbalance_ratio'], reverse=True)
-    #print("\nMOST IMBALANCED CLASSES (worst first):")
-    #for stat in class_stats:
-    #    if stat['imbalance_ratio'] != float('inf'):
-    #        print(f"{stat['class']:15} - 1:{stat['imbalance_ratio']:6.1f} "
-    #              f"({stat['pos_percent']:4.1f}% positive)")
-    
-    #print("=" * 50)
-    
     return class_stats
 
 
-def create_weighted_sampler_from_csv(csv_path, oversample_factor=10):
+def create_weighted_sampler_from_csv(df, oversample_factor=10):
     """
     Create WeightedRandomSampler based on class frequencies in CSV.
     Heavily oversamples minority classes like cook.
@@ -187,7 +116,6 @@ def create_weighted_sampler_from_csv(csv_path, oversample_factor=10):
     Returns:
         WeightedRandomSampler
     """
-    df = pd.read_csv(csv_path)
     label_cols = [c for c in df.columns if c != 'filename']
     
     # Calculate class frequencies
@@ -220,15 +148,12 @@ def create_weighted_sampler_from_csv(csv_path, oversample_factor=10):
         sample_weights.append(sample_weight)
     
     print(f"[INFO] Sample weights range: {min(sample_weights):.3f} to {max(sample_weights):.3f}")
-    print(f"[INFO] Cook samples will be seen ~{oversample_factor}x more often")
     
     return WeightedRandomSampler(
         weights=sample_weights,
         num_samples=len(sample_weights),
         replacement=True
     )
-
-
 
 def calc_pos_weight(csv_path, device, max_weight: float = None):
     df = pd.read_csv(csv_path)
@@ -254,19 +179,6 @@ def calc_pos_weight(csv_path, device, max_weight: float = None):
 def save_model(model: torch.nn.Module,
                target_dir: str,
                model_name: str):
-  """Saves a PyTorch model to a target directory.
-
-  Args:
-    model: A target PyTorch model to save.
-    target_dir: A directory for saving the model to.
-    model_name: A filename for the saved model. Should include
-      either ".pth" or ".pt" as the file extension.
-
-  Example usage:
-    save_model(model=model_0,
-               target_dir="models",
-               model_name="05_going_modular_tingvgg_model.pth")
-  """
   # Create target directory
   target_dir_path = Path(target_dir)
   target_dir_path.mkdir(parents=True,
@@ -285,65 +197,28 @@ def save_model(model: torch.nn.Module,
 
 
 def load_backbone(model_class, model_path: str, num_classes: int, device: torch.device):
-    """
-    Einheitlicher Loader für alle Backbone-Klassen (ViT, EfficientNet, ...)
 
-    Args:
-        model_class: Klassenobjekt (z.B. ViTB16 oder EfficientNetB2)
-        model_path: Pfad zur gespeicherten .pth Datei
-        num_classes: Anzahl der Klassen für den Klassifikator
-        device: torch.device ("cpu" oder "cuda")
-
-    Returns:
-        Instanziertes Backbone mit geladenen Gewichten (im eval-Modus)
-    """
-    # Backbone instanziieren
     backbone = model_class(device=device, out_features=num_classes, pretrained=False,  augmentation=False, unfreeze_last_n=0)
 
-    # State dict laden
     state_dict = torch.load(model_path, map_location=device)
     backbone.model.load_state_dict(state_dict)
 
     return backbone.model.to(device).eval()
 
 def load_model(model_path: str, device: torch.device):
-    """
-    Lädt ein gespeichertes PyTorch Model von einer .pth Datei
-    
-    Args:
-        model_path: Pfad zur .pth Datei
-        device: torch.device (cpu oder cuda)
-    
-    Returns:
-        Geladenes Model im eval() Modus
-    """
     model = torch.load(model_path, map_location=device)
     return model.to(device).eval()
 
 
 def load_vit_model(model_path: str, num_classes: int, device: torch.device):
-    """
-    Lädt ein ViT-B16 Model mit angepasstem Klassifikator
-    
-    Args:
-        model_path: Pfad zur .pth Datei
-        num_classes: Anzahl der Klassen für den Klassifikator
-        device: torch.device (cpu oder cuda)
-    
-    Returns:
-        Geladenes Model im eval() Modus
-    """
-    # Model-Architektur erstellen (ohne pretrained weights)
     model = models.vit_b_16(weights=None)
     
-    # Klassifikator anpassen (genau wie beim Training)
     original_head_in_features = model.heads[0].in_features 
     model.heads = nn.Sequential(
         nn.Dropout(p=0.1),
         nn.Linear(in_features=original_head_in_features, out_features=num_classes, bias=True)
     )
     
-    # State dict laden und ins Model
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     

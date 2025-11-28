@@ -11,7 +11,7 @@ def run_epoch(model: torch.nn.Module,
               loss_fn: torch.nn.Module,
               device: torch.device,
               optimizer: Optional[torch.optim.Optimizer] = None):
-    """Run one epoch (train if optimizer given, else eval)."""
+    """Run one epoch ('train' if optimizer given, else 'eval')."""
     is_train = optimizer is not None
     model.train(is_train)
 
@@ -46,6 +46,9 @@ def run_epoch(model: torch.nn.Module,
 
 
 def evaluate_metrics(logits, targets, class_names, threshold=0.5):
+    """
+    Evaluate and return per-class and macro metrics.
+    """
     acc, prec, rec, f1, ap, mAP = calc_metrics(
         targets=targets, logits=logits,
         threshold=threshold, class_names=class_names
@@ -87,31 +90,31 @@ def train(model: torch.nn.Module,
     recall_data = {n: [0.0] for n in class_names}
 
     for epoch in tqdm(range(epochs)):
-        # --- Train ---
+        # train
         train_out = run_epoch(model, train_dataloader,
                               loss_fn, device, optimizer)
         train_metrics = evaluate_metrics(
             train_out["logits"], train_out["targets"], class_names, threshold)
 
-        # --- Validation (optional) ---
+        # val
         val_out, val_metrics = None, None
         if val_dataloader is not None and len(val_dataloader) > 0:
             val_out = run_epoch(model, val_dataloader, loss_fn, device)
             val_metrics = evaluate_metrics(
                 val_out["logits"], val_out["targets"], class_names, threshold)
 
-        # --- Test (optional) ---
+        # test
         test_out, test_metrics = None, None
         if test_dataloader is not None and len(test_dataloader) > 0:
             test_out = run_epoch(model, test_dataloader, loss_fn, device)
             test_metrics = evaluate_metrics(
                 test_out["logits"], test_out["targets"], class_names, threshold)
 
-        # --- Scheduler ---
+        # scheduler
         if scheduler:
             scheduler.step()
 
-        # --- Append metrics ---
+        # append metrics
         epoch_idx.append(epoch + 1)
         loss_train.append(train_out["loss"])
         if val_out is not None:
@@ -126,7 +129,7 @@ def train(model: torch.nn.Module,
                 recall_data[cname].append(
                     test_metrics["per_class"][cname]["recall"])
 
-        # --- Console output ---
+        # console output
         print(f"\nEpoch {epoch+1}/{epochs}")
         print(f"  Train - Loss: {train_out['loss']:.4f}")
         if val_out is not None:
@@ -142,7 +145,7 @@ def train(model: torch.nn.Module,
                 print(f"{cname:15} {m['accuracy']:8.4f} {m['precision']:8.4f} "
                       f"{m['recall']:8.4f} {m['f1']:8.4f} {m['ap']:8.4f}")
 
-        # --- W&B logging ---
+        # wandb logging
         log_dict = {
             "epoch": epoch + 1,
             "loss_train": train_out["loss"],
@@ -159,7 +162,7 @@ def train(model: torch.nn.Module,
                 for metric, val in test_metrics["per_class"][cname].items():
                     log_dict[f"{metric}_{cname}"] = val
 
-        # --- Curves (loss + precision/recall) ---
+        # curves (loss + precision/recall)
         ys, keys = [loss_train], ["train"]
         if len(loss_val) > 1:
             ys.append(loss_val)
@@ -183,7 +186,7 @@ def train(model: torch.nn.Module,
                     xname="Epoch"
                 )
 
-        # --- Confusion matrices ---
+        # confusion matrices
         if test_out is not None:
             preds_bin = (test_out["logits"].sigmoid()
                          > threshold).cpu().numpy()
