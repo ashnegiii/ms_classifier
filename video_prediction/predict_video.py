@@ -20,6 +20,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import cv2
 import torch
 from PIL import Image
+from tqdm import tqdm
 from torchvision import transforms
 
 from src.backbone.clip_vit_b16 import CLIPViTB16
@@ -109,7 +110,7 @@ def load_model_and_transform(model_path: str, model_type: str, device: torch.dev
             device=device,
             pretrained=False,
             augmentation=False,
-            unfreeze_last_n=0,
+            unfreeze_last_n=2, # doesnt matter for inference, so randomly set to 2!
             out_features=NUM_CLASSES,
         )
         state = torch.load(model_path, map_location=device)
@@ -128,9 +129,14 @@ def predict_video(video_path: Path, model_path: Path, model_type: str, output_cs
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open video: {video_path}")
 
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total_frames <= 0:
+        total_frames = None  # unknown length, tqdm will show count only
+
     rows = []
     frame_idx = 0
 
+    pbar = tqdm(total=total_frames, unit="frame", desc="Predicting")
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -148,7 +154,8 @@ def predict_video(video_path: Path, model_path: Path, model_type: str, output_cs
         row = [frame_idx] + [float(probs[i]) for i in range(NUM_CLASSES)]
         rows.append(row)
         frame_idx += 1
-
+        pbar.update(1)
+    pbar.close()
     cap.release()
 
     # Write CSV
