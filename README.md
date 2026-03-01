@@ -198,7 +198,7 @@ Used at inference time (e.g. in the visualizer server) to load a saved checkpoin
 
 - `**BaseConfig**`  
 Defines lists for every hyperparameter and data split: e.g. `EPISODE_SPLITS` (list of train/val/test episode dicts), `RANDOM_SEED`, `MODEL_NAME`, `NUM_EPOCHS`, `BATCH_SIZE`, `LEARNING_RATE`, `AUGMENTATION`, `OVERSAMPLING`, `UNFREEZE_ENCODER_LAYERS`, `SCHEDULER`, etc. One experiment is one element of the Cartesian product of these lists.
-- **Experiment configs** (e.g. `rq2_a4_3_combination_config.py`). Filename indicates for which research question that experiment config was used. Subclass of `BaseConfig` and it overrides specific fields (e.g. `TAG`, `DESCRIPTION`, `AUGMENTATION`, `OVERSAMPLING`, `OVERSAMPLE_FACTOR`, `MAX_BCE_WEIGHT`). `train.py` imports one of these as `ExperimentConfig` and uses it to build the experiment grid!
+- **Experiment configs** (e.g. `rq2_a4_3_combination_config.py`). Filename indicates for which research question that experiment config was used. It is a subclass of `BaseConfig` and it overrides specific fields (e.g. `TAG`, `DESCRIPTION`, `AUGMENTATION`, `OVERSAMPLING`, `OVERSAMPLE_FACTOR`, `MAX_BCE_WEIGHT`). `train.py` imports one of these as `ExperimentConfig` and uses it to build the experiment grid!
 
 ### Backbones (`src/backbone/`)
 
