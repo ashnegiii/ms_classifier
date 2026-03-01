@@ -1,6 +1,6 @@
 
 """
-This script runs a trained model on a video and outputs per-frame, per-character predictions to a CSV.
+This script runs a trained model on a video and outputs per-frame, per-character predictions to a CSV. 
 
 Usage (from repository root):
     PYTHONPATH=. python video_prediction/predict_video.py --video path/to/video.mp4 --model path/to/model.pth [--model-type clip_vitb16]
