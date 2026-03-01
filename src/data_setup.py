@@ -1,5 +1,5 @@
 """
-Contains functionality for creating PyTorch DataLoader's for image classification data.
+Creating PyTorch DataLoader's for image classification data.
 """
 
 import pandas as pd
@@ -86,7 +86,7 @@ def create_dataloaders(
         val_df = filter_by_episode(df, episode_splits["val"])
         test_df = filter_by_episode(df, episode_splits["test"])
 
-        # few shot learning
+        # few shot learning (was used to see how well the model would perform on the episode with few shots, but is currently disabled)
         if not test_df.empty and False:  # Currently disabled
             print("Applying few-shot sampling from test to training set.")
             fewshot_df, test_remaining_df = train_test_split(

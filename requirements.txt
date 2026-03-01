@@ -15,3 +15,6 @@ wandb
 gdown
 seaborn
 open_clip_torch
+fastapi
+uvicorn[standard]
+python-multipart

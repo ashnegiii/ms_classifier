@@ -173,3 +173,6 @@ logs/
 
 package-lock.json
 */tailwindcss
+
+# visualizer
+visualizer/models/
