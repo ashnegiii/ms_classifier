@@ -60,12 +60,18 @@ def calc_metrics(targets: torch.Tensor,
     return accuracy_per_class, precision_per_class, recall_per_class, f1_per_class, ap_per_class, mAP
 
 def analyze_class_distribution_from_path(csv_path):
+    """
+    Analyzes the class distribution from a CSV file.
+    """
     df = pd.read_csv(csv_path)
     print(f"CSV Path: {csv_path}")
     analyze_class_distribution_from_df(df)
 
 
 def analyze_class_distribution_from_df(df, label="CSV"):
+    """
+    Analyzes the class distribution from a DataFrame.
+    """
     label_cols = [c for c in df.columns if c != 'filename']
     
     total_samples = len(df)

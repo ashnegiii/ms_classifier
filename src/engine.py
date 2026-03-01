@@ -78,7 +78,13 @@ def train(model: torch.nn.Module,
           threshold: float = 0.5,
           early_stopping_patience=3,
           scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None):
-
+    """
+    This is the main training loop for each single experiment from the iteration list.
+    For each epoch, it runs train epoch, then optional val and test epochs.
+    Steps the scheduler, computes metrics and then prints train/val/test loss and per-class test metrics.
+    Also logs to W&B (loss curves, precision/recall per class, confusion matrices).
+    Uses **`EarlyStopping`** on the chosen metric (mAP was selected): if there is no improvement for `early_stopping_patience` epochs, training stops.
+    """
     early_stopper = EarlyStopping(
         patience=early_stopping_patience, metric="mAP")
 
