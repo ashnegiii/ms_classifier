@@ -5,8 +5,8 @@ This script runs a trained model on a video and outputs per-frame, per-character
 Usage (from repository root):
     PYTHONPATH=. python video_prediction/predict_video.py --video path/to/video.mp4 --model path/to/model.pth [--model-type clip_vitb16]
 
-Output: CSV with same name as video, in same folder (e.g. video.mp4 -> video.csv)
-Format: frame,kermit,miss_piggy,cook,statler_waldorf,rowlf_the_dog,fozzie_bear
+Output: CSV in video_prediction/ folder, same stem as video (e.g. video.mp4 -> video_prediction/video.csv)
+Format: frame,kermit,miss_piggy,cook,statler_waldorf,rowlf_the_dog,fozzie_bear (values 0 or 1, 50% threshold)
 """
 
 import argparse
@@ -151,7 +151,8 @@ def predict_video(video_path: Path, model_path: Path, model_type: str, output_cs
             logits = model(img_tensor)
             probs = torch.sigmoid(logits).squeeze().cpu().numpy()
 
-        row = [frame_idx] + [float(probs[i]) for i in range(NUM_CLASSES)]
+        # Binary predictions: 1 if prob >= 0.5, else 0
+        row = [frame_idx] + [1 if probs[i] >= 0.5 else 0 for i in range(NUM_CLASSES)]
         rows.append(row)
         frame_idx += 1
         pbar.update(1)
@@ -188,7 +189,7 @@ def main():
         sys.exit(f"Model not found: {args.model}")
 
     model_type = args.model_type or _infer_model_type(str(args.model))
-    output_csv = args.video.with_suffix(".csv")
+    output_csv = Path(__file__).resolve().parent / f"{args.video.stem}.csv"
 
     predict_video(args.video, args.model, model_type, output_csv)
 
