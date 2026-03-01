@@ -1,0 +1,20 @@
+torch --index-url https://download.pytorch.org/whl/cu126
+torchvision --index-url https://download.pytorch.org/whl/cu126
+tensorboard
+torchinfo
+opencv-python
+pandas
+torchsummary
+tqdm
+torchmetrics
+matplotlib
+Pillow
+mlxtend
+scikit-learn
+wandb
+gdown
+seaborn
+open_clip_torch
+fastapi
+uvicorn[standard]
+python-multipart
