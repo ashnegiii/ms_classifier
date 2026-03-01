@@ -13,10 +13,9 @@ This repository is the archive of all created resources.
 | Component | Description |
 |-----------|-------------|
 | **Source code for the training pipeline** | Full project code: `src/` (training, evaluation, backbones, Grad-CAM), `visualizer/` (backend API + frontend), `download_data.py`, `generate_data.py`, configs under `src/config/`. |
-| **Training data** | Raw data in `data/raw/` (e.g. after running `download_data.py`): videos/episodes (02-01-01, 03-04-03, 02-04-04, miss-piggy, the-cook, rowlf-the-dog, etc.) and associated annotation/CSV files. Episode **03-04-17** is intentionally excluded (used for testing only). |
+| **Training data** | Raw data in `data/raw/` (e.g. after running `download_data.py`): videos/episodes (02-01-01, 03-04-03, 02-04-04, miss-piggy, the-cook, rowlf-the-dog, etc.) and associated annotation/CSV files. |
 | **Models** | Trained checkpoints (`.pth`) in `visualizer/models/`: e.g. EfficientNet-B2, ResNet-50, ConvNeXt-Tiny, CLIP ViT-B/16. Obtained via `download_data.py` from the provided Google Drive folder. |
 | **Ground truth (GT)** | Annotation and reference data for the Muppet characters (e.g. in `data/raw/` as CSVs). |
-
 
 Supported model architectures: **EfficientNet-B2**, **ResNet-50**, **ConvNeXt-Tiny** and **CLIP ViT-B/16**. The best models with the best configuration from the experiments were selected. The models were trained on all available videos **except** **03-04-17**, which was held out for testing.
 
@@ -25,8 +24,9 @@ Supported model architectures: **EfficientNet-B2**, **ResNet-50**, **ConvNeXt-Ti
 # Setup and Running the Visualizer
 
 A visualizer web app was created to showcase the trained deep learning models for future lectures. Since the model checkpoints and all videos require a lot of memory, a download script was created to download all necessary files and run the training pipeline, as well as download best models for inference.
-**First, download all data and models (once).** Run from the repository root:
+**First, download all data and models (once).** 
 
+Run from the repository root:
 ```bash
 python download_data.py
 ```
