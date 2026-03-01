@@ -13,8 +13,8 @@ This repository is the archive of all created resources.
 | Component | Description |
 |-----------|-------------|
 | **Source code for the training pipeline** | Full project code: `src/` (training, evaluation, backbones, Grad-CAM), `visualizer/` (backend API + frontend), `download_data.py`, `generate_data.py`, configs under `src/config/`. |
-| **Training data** | Raw data in `data/raw/` (e.g. after running `download_data.py`): videos/episodes (02-01-01, 03-04-03, 02-04-04, miss-piggy, the-cook, rowlf-the-dog, etc.) and associated annotation/CSV files. |
-| **Models** | Trained checkpoints (`.pth`) in `visualizer/models/`: e.g. EfficientNet-B2, ResNet-50, ConvNeXt-Tiny, CLIP ViT-B/16. Obtained via `download_data.py` from the provided Google Drive folder. |
+| **Training data** | Raw data in `data/raw/` (after running `download_data.py` (see below)): videos/episodes (02-01-01, 03-04-03, 02-04-04, miss-piggy, the-cook, rowlf-the-dog, etc.) and associated annotation/CSV files. |
+| **Models** | Trained checkpoints (`.pth`) for the best models in `visualizer/models/`. (Obtained via `download_data.py` from the provided Google Drive folder.)  |
 | **Ground truth (GT)** | Annotation and reference data for the Muppet characters (e.g. in `data/raw/` as CSVs). |
 
 Supported model architectures: **EfficientNet-B2**, **ResNet-50**, **ConvNeXt-Tiny** and **CLIP ViT-B/16**. The best models with the best configuration from the experiments were selected. The models were trained on all available videos **except** **03-04-17**, which was held out for testing.
@@ -33,13 +33,21 @@ python download_data.py
 
 This fetches the dataset into `data/raw` (which were used for the training/test pipeline) and also downloads the final trained **models** folder from Google Drive into `visualizer/models` (only if that folder doesn’t already exist). Do this before training or running the visualizer. The visualizer is used for showing the Predictions and GradCam implementation for future Lectures.
 
+**Before training (once):** If you want to run the training pipeline, you first need to extract frames and labels from the raw videos. Run `generate_data.py` (once) after downloading:
+
+```bash
+python generate_data.py
+```
+
+This reads `data/raw` (videos + CSV label files), extracts frames into `data/images` and labels into `data/labels`. You don't need to run this if you only use the visualizer or video prediction — it was already done for the training pipeline.
+
 For the visualizer: the **backend API** (loads the model, runs predictions and Grad-CAM) and the **frontend** (React app for loading model/video and viewing results) are needed.
 
 ## Prerequisites
 
-- **Python 3.11 or 3.12** with `pip` (for the backend).
+- **Python 3.11 or 3.12** with `pip` was used.
 - **Node.js** and **npm** (for the frontend)
-- A trained `.pth` checkpoint (one of the supported architectures) and a video file (e.g. Muppet Show clip)
+- A trained `.pth` checkpoint (one of the supported architectures) and a video file to create the predictions on.
 
 ### Backend (FastAPI)
 
@@ -72,9 +80,6 @@ npm run dev
 - The app runs at **http://localhost:5173**
 
 Start the backend first so that “Load model" and “Create prediction" work correctly.
-```
-VITE_API_URL=http://localhost:8000
-```
 
 Then restart the frontend (`npm run dev`).
 
@@ -83,7 +88,6 @@ Then restart the frontend (`npm run dev`).
 ## How the Visualizer Works
 
 The **Muppet Show Prediction Viewer** lets you load a trained model and a video, pick a frame, choose which characters to predict, and then see per-character prediction scores and also the Grad-CAM heatmaps.
-
 
 How to use the Web App when started:
 
@@ -104,14 +108,14 @@ How to use the Web App when started:
 5. **View results**  
    The right-hand panel shows one result per selected character: **confidence** (0–100%) and a **Grad-CAM heatmap** overlay. Use the left/right arrows or the designated buttons to skip to the next character.
 
-The frontend only talks to the backend over HTTP; no model runs in the browser. All inference and Grad-CAM are done in Python (PyTorch, OpenCV) on the server.
+The frontend only talks to the backend over HTTP. No model runs in the browser. All inference and Grad-CAM are done in Python (PyTorch, OpenCV) on the server.
 
 ---
 | Path | Description |
 |------|--------------|
 | `visualizer/server.py` | FastAPI app: `POST /api/model` (upload `.pth` + model type), `POST /api/predict` (frame + character IDs → predictions and Grad-CAM images). |
 | `src/` | Training and evaluation: backbones (`effnet_b2`, `resnet`, `convnext_tiny`, `clip_vit_b16`), `eval/gradcam.py`, `eval/eval_single.py`, `utils.py` (model loading). |
-| `visualizer/frontend/` | React + Vite app; main UI in `visualizer/frontend/src/App.tsx`. |
+| `visualizer/frontend/` | React + Vite app. Main UI in `visualizer/frontend/src/App.tsx`. |
 
 ---
 
@@ -154,7 +158,7 @@ The training pipeline is in `src/`. You run it from the **repository root** with
 - **`EarlyStopping`**  
   Tracks the best value of a metric (e.g. mAP) and the number of epochs without improvement.  
   - **`__init__(patience, metric)`**  
-    `patience` = how many epochs without improvement before stopping; `metric` = key in the metrics dict (e.g. `"mAP"`).  
+    `patience` = how many epochs without improvement before stopping. `metric` = key in the metrics dict (e.g. `"mAP"`).  
   - **`__call__(epoch, val_metrics)`**  
     Updates best score and `epochs_no_improve`. Returns `True` if training should stop (no improvement for `patience` epochs).
 
@@ -165,7 +169,7 @@ The training pipeline is in `src/`. You run it from the **repository root** with
   Converts logits to probabilities (sigmoid), optionally uses per-class thresholds, and computes per-class accuracy, precision, recall, F1, and average precision, plus macro mAP.
 
 - **`create_weighted_sampler_from_csv(df, oversample_factor)`**  
-  Builds a `WeightedRandomSampler` so that minority classes (e.g. rare characters) are oversampled during training. Weights are based on class frequencies in the CSV; very rare classes get an extra boost via `oversample_factor`.
+  Builds a `WeightedRandomSampler` so that minority classes (e.g. rare characters) are oversampled during training. Weights are based on class frequencies in the CSV. very rare classes get an extra boost via `oversample_factor`.
 
 - **`save_model(model, target_dir, model_name)`**  
   Creates `target_dir` if needed and saves `model.state_dict()` as `target_dir/model_name` (e.g. `.pth`).
