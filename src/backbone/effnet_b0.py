@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torchvision
+from torchsummary import summary
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
@@ -67,3 +68,7 @@ class EfficientNetB0():
         print(f"[INFO] Total parameters: {total_params:,}")
         print(
             f"[INFO] Trainable parameters: {trainable_params:,} ({trainable_params/total_params*100:.2f}%)")
+
+    def print_summary(self):
+        """Print model summary using torchsummary (input shape: 3×224×224)."""
+        summary(self.model, (3, 224, 224))

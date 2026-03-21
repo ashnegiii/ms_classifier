@@ -50,6 +50,17 @@ export function MuppetShowPredictor() {
     const [videoFile, setVideoFile] = useState<File | null>(null);
     const [videoUrl, setVideoUrl] = useState<string>('');
 
+    // Server-side video state
+    const [videoId, setVideoId] = useState<string | null>(null);
+    const [serverFps, setServerFps] = useState<number>(25);
+    const [serverFrameCount, setServerFrameCount] = useState<number>(0);
+    const [videoUploading, setVideoUploading] = useState<boolean>(false);
+
+    // Whether the browser can render the video natively (false for AVI, etc.)
+    const [isVideoPlayable, setIsVideoPlayable] = useState<boolean>(true);
+    // Frame image fetched from the server, used when the browser can't render the video
+    const [serverFrameData, setServerFrameData] = useState<string>('');
+
     const [currentFrame, setCurrentFrame] = useState(0);
     const [totalFrames, setTotalFrames] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -63,13 +74,47 @@ export function MuppetShowPredictor() {
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
+    // Debounce server frame requests while scrubbing
+    const frameRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setVideoFile(file);
-            const url = URL.createObjectURL(file);
-            setVideoUrl(url);
+        if (!file) return;
+
+        setVideoFile(file);
+        setVideoId(null);
+        setServerFps(25);
+        setServerFrameCount(0);
+        setIsVideoPlayable(true);
+        setServerFrameData('');
+        setPredictionResult(null);
+        setCurrentFrame(0);
+        setTotalFrames(0);
+
+        const url = URL.createObjectURL(file);
+        setVideoUrl(url);
+
+        // Upload to server so OpenCV can extract frames (needed for AVI and other
+        // formats that browsers cannot decode via the canvas API)
+        setVideoUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch(`${API_BASE}/api/upload-video`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            setVideoId(data.videoId);
+            setServerFps(data.fps);
+            setServerFrameCount(data.frameCount);
+        } catch {
+            toast('Warning', {
+                description: 'Could not upload video to server. Prediction may not work.',
+            });
+        } finally {
+            setVideoUploading(false);
         }
     };
 
@@ -111,38 +156,86 @@ export function MuppetShowPredictor() {
         }
     };
 
+    // Detect whether the browser can render this video format
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || !videoUrl) return;
 
         const handleLoadedMetadata = () => {
-            const fps = 25;
-            setTotalFrames(Math.floor(video.duration * fps));
+            const canPlay = video.videoWidth > 0 && video.videoHeight > 0;
+            setIsVideoPlayable(canPlay);
+            if (canPlay) {
+                const fps = serverFps || 25;
+                setTotalFrames(Math.floor(video.duration * fps));
+            }
+        };
+
+        const handleError = () => {
+            setIsVideoPlayable(false);
         };
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
-        return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    }, [videoUrl]);
+        video.addEventListener('error', handleError);
+        return () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('error', handleError);
+        };
+    }, [videoUrl, serverFps]);
+
+    // Keep total frames in sync with server metadata (OpenCV is more accurate than browser)
+    useEffect(() => {
+        if (serverFrameCount > 0) {
+            setTotalFrames(serverFrameCount);
+        }
+    }, [serverFrameCount]);
+
+    // When video can't play in browser, fetch the first frame to show something
+    useEffect(() => {
+        if (!isVideoPlayable && videoId && !serverFrameData) {
+            fetch(`${API_BASE}/api/extract-frame`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoId, frameNumber: 0 }),
+            })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => { if (data?.frameBase64) setServerFrameData(data.frameBase64); })
+                .catch(() => {});
+        }
+    }, [isVideoPlayable, videoId, serverFrameData]);
 
     useEffect(() => {
         const video = videoRef.current;
         if (!video || !isPlaying) return;
 
+        const fps = serverFps || 25;
         const interval = setInterval(() => {
-            const fps = 25;
             setCurrentFrame(Math.floor(video.currentTime * fps));
-        }, 1000 / 25);
+        }, 1000 / fps);
 
         return () => clearInterval(interval);
-    }, [isPlaying]);
+    }, [isPlaying, serverFps]);
 
     const goToFrame = (frame: number) => {
         const video = videoRef.current;
-        if (!video) return;
-
-        const fps = 25;
-        video.currentTime = frame / fps;
+        if (video && isVideoPlayable) {
+            video.currentTime = frame / (serverFps || 25);
+        }
         setCurrentFrame(frame);
+
+        // For non-playable formats, fetch the frame image from the server (debounced)
+        if (!isVideoPlayable && videoId) {
+            if (frameRequestTimeoutRef.current) clearTimeout(frameRequestTimeoutRef.current);
+            frameRequestTimeoutRef.current = setTimeout(() => {
+                fetch(`${API_BASE}/api/extract-frame`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ videoId, frameNumber: frame }),
+                })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((data) => { if (data?.frameBase64) setServerFrameData(data.frameBase64); })
+                    .catch(() => {});
+            }, 100);
+        }
     };
 
     const handlePlayPause = () => {
@@ -174,32 +267,34 @@ export function MuppetShowPredictor() {
 
     const runPrediction = async () => {
         if (!loadedModelName || !videoFile) {
-            toast('Error', {
-                description: 'Please load a model and video',
-            });
+            toast('Error', { description: 'Please load a model and video' });
             return;
         }
-
         if (selectedCharacters.length === 0) {
-            toast('Error', {
-                description: 'Please select at least one character',
-            });
+            toast('Error', { description: 'Please select at least one character' });
             return;
         }
-
-        const video = videoRef.current;
-        if (!video) return;
+        if (!videoId) {
+            toast('Error', { description: 'Video is still uploading to server, please wait' });
+            return;
+        }
 
         setLoading(true);
         setCurrentCharacterIndex(0);
 
         try {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(video, 0, 0);
-            const frameData = canvas.toDataURL('image/jpeg');
+            // Always use server-side frame extraction — works for AVI and all other
+            // OpenCV-supported formats, unlike the browser canvas approach
+            const extractRes = await fetch(`${API_BASE}/api/extract-frame`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoId, frameNumber: currentFrame }),
+            });
+            if (!extractRes.ok) {
+                const err = await extractRes.json().catch(() => ({ detail: extractRes.statusText }));
+                throw new Error(err.detail ?? 'Failed to extract frame');
+            }
+            const { frameBase64: frameData } = await extractRes.json();
 
             const res = await fetch(`${API_BASE}/api/predict`, {
                 method: 'POST',
@@ -238,10 +333,7 @@ export function MuppetShowPredictor() {
             };
 
             setPredictionResult(result);
-
-            toast('Success', {
-                description: 'Prediction successfully created',
-            });
+            toast('Success', { description: 'Prediction successfully created' });
         } catch (error) {
             console.error('Prediction error:', error);
             toast('Error', {
@@ -298,7 +390,7 @@ export function MuppetShowPredictor() {
                         <input
                             ref={videoInputRef}
                             type='file'
-                            accept='video/*'
+                            accept='video/*,.avi'
                             onChange={handleVideoFileChange}
                             className='hidden'
                         />
@@ -307,8 +399,14 @@ export function MuppetShowPredictor() {
                             className='w-full justify-start text-sm'
                             onClick={() => videoInputRef.current?.click()}
                         >
-                            <UploadIcon className='mr-2 h-4 w-4 shrink-0' />
-                            <span className='truncate'>{videoFile ? videoFile.name : 'Select video...'}</span>
+                            {videoUploading ? (
+                                <Loader2Icon className='mr-2 h-4 w-4 shrink-0 animate-spin' />
+                            ) : (
+                                <UploadIcon className='mr-2 h-4 w-4 shrink-0' />
+                            )}
+                            <span className='truncate'>
+                                {videoUploading ? 'Uploading...' : videoFile ? videoFile.name : 'Select video...'}
+                            </span>
                         </Button>
                     </div>
 
@@ -349,11 +447,11 @@ export function MuppetShowPredictor() {
                     <div className='flex items-end'>
                         <Button
                             onClick={runPrediction}
-                            disabled={loading || !loadedModelName || !videoFile}
+                            disabled={loading || videoUploading || !loadedModelName || !videoFile}
                             className='w-full'
                             size='lg'
                         >
-                                {loading ? 'Running...' : 'Create prediction'}
+                            {loading ? 'Running...' : 'Create prediction'}
                         </Button>
                     </div>
                 </div>
@@ -363,14 +461,32 @@ export function MuppetShowPredictor() {
                 <div className='grid gap-6 lg:grid-cols-2'>
                     <div className='space-y-4'>
                         <h3 className='text-lg font-semibold'>Original Frame</h3>
-                        <div className='aspect-video w-full overflow-hidden rounded-lg bg-black'>
+                        <div className='aspect-video w-full overflow-hidden rounded-lg bg-black relative'>
                             {videoUrl ? (
-                                <video
-                                    ref={videoRef}
-                                    src={videoUrl}
-                                    className='h-full w-full object-contain'
-                                    onEnded={() => setIsPlaying(false)}
-                                />
+                                <>
+                                    {/* Always keep the video element in the DOM for metadata access */}
+                                    <video
+                                        ref={videoRef}
+                                        src={videoUrl}
+                                        className={`h-full w-full object-contain ${isVideoPlayable ? '' : 'hidden'}`}
+                                        onEnded={() => setIsPlaying(false)}
+                                    />
+                                    {!isVideoPlayable && (
+                                        serverFrameData ? (
+                                            <img
+                                                src={serverFrameData}
+                                                alt={`Frame ${currentFrame}`}
+                                                className='h-full w-full object-contain'
+                                            />
+                                        ) : (
+                                            <div className='flex h-full items-center justify-center text-muted-foreground text-sm text-center p-4'>
+                                                {videoUploading
+                                                    ? 'Uploading video to server...'
+                                                    : 'Video format not supported in browser — use frame controls to navigate'}
+                                            </div>
+                                        )
+                                    )}
+                                </>
                             ) : (
                                 <div className='flex h-full items-center justify-center text-muted-foreground'>
                                     Load a video
@@ -393,7 +509,7 @@ export function MuppetShowPredictor() {
                                     variant='outline'
                                     size='icon'
                                     onClick={handlePlayPause}
-                                    disabled={!videoUrl}
+                                    disabled={!videoUrl || !isVideoPlayable}
                                 >
                                     {isPlaying ? <PauseIcon className='h-4 w-4' /> : <PlayIcon className='h-4 w-4' />}
                                 </Button>
@@ -417,9 +533,9 @@ export function MuppetShowPredictor() {
                                 <Slider
                                     value={[currentFrame]}
                                     onValueChange={([value]) => goToFrame(value)}
-                                    max={totalFrames - 1}
+                                    max={Math.max(0, totalFrames - 1)}
                                     step={1}
-                                    disabled={!videoUrl}
+                                    disabled={!videoUrl || totalFrames === 0}
                                     className='w-full'
                                 />
                             </div>

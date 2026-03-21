@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import open_clip
+from torchsummary import summary
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 
@@ -78,6 +79,21 @@ class CLIPViTB16(nn.Module):  # Inherit from nn.Module
         print(f"[INFO] Total parameters: {total_params:,}")
         print(f"[INFO] Trainable parameters: {trainable_params:,} "
               f"({trainable_params/total_params*100:.2f}%)")
+
+    def print_summary(self):
+        """Print model summary. Uses fallback for CLIP (torchsummary incompatible with open_clip attention)."""
+        try:
+            summary(self, (3, 224, 224))
+        except (AttributeError, TypeError):
+            # open_clip attention returns (tensor, None) when need_weights=False; torchsummary expects .size() on all outputs
+            total = sum(p.numel() for p in self.parameters())
+            trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+            pct = 100 * trainable / total if total else 0
+            print(f"\n--- {self.model_name} summary (open_clip; layer table not available) ---")
+            print(f"  Input shape: (3, 224, 224)")
+            print(f"  Total params: {total:,}")
+            print(f"  Trainable params: {trainable:,} ({pct:.2f}%)")
+            print("---\n")
 
     def forward(self, x):
         feats = self.visual(x)          # extract CLIP visual features

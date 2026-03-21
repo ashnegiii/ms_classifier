@@ -70,6 +70,7 @@ def run_single_experiment(config_dict, experiment_id, total_experiments, experim
     out_features = len(get_class_names(csv_path=labels_dir))
     model = create_model(config_dict["model_name"], out_features, config_dict["pretrained"],
                          config_dict["augmentation"], config_dict["unfreeze_encoder_layers"], device)
+    model.print_summary()
 
     # create dataloaders
     train_dl, val_dl, test_dl, class_names = create_dataloaders(

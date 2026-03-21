@@ -2,6 +2,8 @@ import base64
 import io
 import os
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +16,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
@@ -202,6 +204,9 @@ app.state.model = None
 app.state.gradcam = None
 app.state.test_transform = test_transform_imagenet
 
+# In-memory store: videoId -> Path to uploaded video file
+_VIDEO_STORE: dict[str, Path] = {}
+
 
 class LoadModelRequest(BaseModel):
     modelType: str
@@ -211,6 +216,11 @@ class PredictRequest(BaseModel):
     frameBase64: str
     characterIds: list[str]
     frameNumber: int | None = None
+
+
+class ExtractFrameRequest(BaseModel):
+    videoId: str
+    frameNumber: int
 
 
 class PredictionItem(BaseModel):
@@ -361,3 +371,61 @@ async def predict(body: PredictRequest):
         predictions=predictions,
         frameNumber=body.frameNumber,
     )
+
+
+@app.post("/api/upload-video")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a video file and return a videoId plus metadata (fps, frameCount).
+
+    The video is stored in a temporary directory and can be referenced by videoId
+    for server-side frame extraction, which supports formats like AVI that browsers
+    cannot decode natively.
+    """
+    video_id = str(uuid.uuid4())
+    suffix = Path(file.filename or "video").suffix or ".bin"
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_path = temp_dir / f"{video_id}{suffix}"
+
+    content = await file.read()
+    temp_path.write_bytes(content)
+
+    cap = cv2.VideoCapture(str(temp_path))
+    fps: float = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+
+    _VIDEO_STORE[video_id] = temp_path
+    return {"videoId": video_id, "fps": fps, "frameCount": frame_count}
+
+
+@app.post("/api/extract-frame")
+async def extract_frame(body: ExtractFrameRequest):
+    """Extract a single frame from a previously uploaded video using OpenCV.
+
+    Returns the frame as a base64-encoded JPEG data URL. This works for all
+    OpenCV-supported formats, including AVI files that browsers cannot render.
+    """
+    video_path = _VIDEO_STORE.get(body.videoId)
+    if video_path is None or not video_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Video not found. Please re-upload the video.",
+        )
+
+    cap = cv2.VideoCapture(str(video_path))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, body.frameNumber)
+    ret, frame = cap.read()
+    cap.release()
+
+    if not ret:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read frame {body.frameNumber} from video.",
+        )
+
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(frame_rgb)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=90)
+    frame_b64 = base64.b64encode(buf.getvalue()).decode()
+    return {"frameBase64": f"data:image/jpeg;base64,{frame_b64}"}

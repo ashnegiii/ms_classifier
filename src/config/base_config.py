@@ -29,7 +29,7 @@ class BaseConfig:
 
     RANDOM_SEED = [42, 7, 2021]
 
-    MODEL_NAME = ["clip_vitb16"]
+    MODEL_NAME = ["resnet50"]
     PRETRAINED = [True]
 
     NUM_EPOCHS = [15]
